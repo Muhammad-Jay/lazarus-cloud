@@ -24,7 +24,9 @@ The audit that preceded this decision found:
 - **An unauthenticated remote code execution path.** A client-supplied source path
   was written and then executed through a shell command, with no authentication, no
   path containment, and `cors: '*'`.
-- **A committed GitHub personal access token** in `front-end/lib/github.test.ts`.
+- **A committed GitHub personal access token** in `lib/github.test.ts`. See `TODO.md`
+  `0.1` for its current status; the credential was still live when this ADR was
+  written.
 - **Duplicated domain logic** across `main-backend` and `backend`, with the weaker
   copy reachable in production. Two implementations of policy, tenancy, and
   validation, disagreeing.

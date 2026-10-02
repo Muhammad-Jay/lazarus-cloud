@@ -20,9 +20,23 @@ its dependencies are green.
 > at the provider, authenticated as you. No code change makes a leaked token
 > safe — deleting the file that contained it does not invalidate it.
 
-- [ ] **0.1** Revoke the GitHub personal access token that was committed at
-      `front-end/lib/github.test.ts:4`. **This is the highest-priority item in the
-      repository.**
+- [ ] **0.1** Revoke the GitHub classic personal access token committed at
+      `lib/github.test.ts:4` in `Lazarus-Cloud-Automation-Platform`. **This is the
+      highest-priority item in the repository.**
+
+  *Verified live on 2026-10-02.* That repository is public and its current default
+  branch still contains a matching 40-character `ghp_` token, committed as a
+  literal rather than read from an environment variable. This is not a
+  historical exposure and the file has not been removed. The earlier
+  `front-end/lib/github.test.ts` path in this item was wrong: the leak is at the
+  repository root.
+
+  The token is **account-scoped, not repo-scoped**. A classic PAT with `repo`
+  permissions reaches every repository the account owns, private ones included,
+  so it also reached `lazarus-cloud`. That repository needs no cleanup of its
+  own — it is private, has three clean commits, contains no credential-shaped
+  string, and CI now blocks recurrence — but its privacy is a reason to revoke
+  promptly, not a reason to skip it.
 
   There is no API that lets a token revoke itself, and the leaked credential must
   not be used to perform its own revocation.
@@ -32,16 +46,21 @@ its dependencies are green.
   2. Revoke **every** token you cannot positively identify. Do not try to work out
      which one it was from the deleted file — revoke all, then re-create only the
      ones still in use. A token's scopes are the only thing that indicates which,
-     and the deleted value is gone.
+     and the copy in the public repository cannot be trusted as the reference.
   3. Under **Settings → Developer settings → GitHub Apps**, revoke any GitHub App
      installation whose permissions look unfamiliar. A leaked PAT is often
      accompanied by a forgotten app install.
   4. Check <https://github.com/settings/security-log> for activity you cannot
      account for.
-  5. Confirm at <https://github.com/settings/developers> that the revoked token
+  5. Delete or make private `Lazarus-Cloud-Automation-Platform`. It is not needed:
+     the product line it carried was closed in `ADR-0008` and the work continues in
+     `lazarus-cloud`. While it stays public it keeps handing this account's
+     credentials to anyone who clones it, and deleting it revokes the file's
+     distribution rather than only the account's use of the token.
+  6. Confirm at <https://github.com/settings/developers> that the revoked token
      no longer appears.
-  6. If the token was ever pushed to a remote, contact GitHub Support to request
-     cache purging. Revocation stops future use; it does not unpublish.
+  7. Contact GitHub Support to request cache purging. Revocation stops future use;
+     it does not unpublish what was already indexed.
 
   A token revoked after being public for any meaningful period is **assumed
   compromised**. Re-create with the narrowest scopes that work, and a short
@@ -79,6 +98,11 @@ its dependencies are green.
 
 **Accept:** tokens revoked, `git grep` for the old token prefix returns nothing
 in any commit, and no `.env*` file is tracked.
+
+The `git grep` condition is about *this* repository's history only. It already
+passes, and passing it means nothing about `0.1` on its own — the credential
+lives in a different repository's history. Do not read a clean scan here as
+evidence that the token is safe to keep.
 
 ---
 

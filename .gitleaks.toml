@@ -2,8 +2,7 @@
 #
 # Purpose: fail the build when a credential is committed. The previous
 # implementation leaked a GitHub personal access token into source
-# (`front-end/lib/github.test.ts:4`) and nothing caught it. That is the gap this
-# closes.
+# (`lib/github.test.ts:4`) and nothing caught it. That is the gap this closes.
 #
 # This file is the single configuration for both paths:
 #   - local:  `just secrets`
