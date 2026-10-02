@@ -25,7 +25,6 @@ ts_projects := `ls apps/web/package.json services/auth/package.json packages/*/p
 # True when the .NET solution has been created (Phase 3).
 cp := `ls apps/control-plane/*.sln* 2>/dev/null || true`
 
-
 default:
     @just --list
 
@@ -33,9 +32,9 @@ default:
 
 # Install dependencies for every toolchain
 install:
-    @if [ -n "{{ts_projects}}" ]; then pnpm install; else echo "ts: skipped (no workspace packages yet)"; fi
+    @if [ -n "{{ ts_projects }}" ]; then pnpm install; else echo "ts: skipped (no workspace packages yet)"; fi
     @go work sync 2>/dev/null || echo "go: skipped"
-    @if [ -n "{{cp}}" ]; then dotnet restore "{{cp}}"; else echo "dotnet: skipped (no solution yet)"; fi
+    @if [ -n "{{ cp }}" ]; then dotnet restore "{{ cp }}"; else echo "dotnet: skipped (no solution yet)"; fi
 
 # Generate code from the contracts (spec schema, OpenAPI, hub manifest)
 codegen:
@@ -46,29 +45,29 @@ codegen:
 
 # Format all code in place
 fmt:
-    @if [ -n "{{ts_projects}}" ]; then pnpm -r fmt; else echo "ts: skipped (no workspace packages yet)"; fi
+    @if [ -n "{{ ts_projects }}" ]; then pnpm -r fmt; else echo "ts: skipped (no workspace packages yet)"; fi
     @[ -d apps/cli ] && gofmt -l -w apps/cli || echo "go: skipped"
-    @if [ -n "{{cp}}" ]; then dotnet format "{{cp}}" --verbosity quiet; else echo "dotnet: skipped (no solution yet)"; fi
+    @if [ -n "{{ cp }}" ]; then dotnet format "{{ cp }}" --verbosity quiet; else echo "dotnet: skipped (no solution yet)"; fi
 
 # Verify formatting without writing changes
 fmt-check:
-    @if [ -n "{{ts_projects}}" ]; then pnpm -r fmt-check; else echo "ts: skipped (no workspace packages yet)"; fi
+    @if [ -n "{{ ts_projects }}" ]; then pnpm -r fmt-check; else echo "ts: skipped (no workspace packages yet)"; fi
     @if [ -d apps/cli ]; then \
       unformatted="$(gofmt -l apps/cli)"; \
       if [ -n "$unformatted" ]; then echo "go: files need gofmt:"; echo "$unformatted"; exit 1; fi; \
     else echo "go: skipped"; fi
-    @if [ -n "{{cp}}" ]; then dotnet format "{{cp}}" --verify-no-changes --verbosity quiet; else echo "dotnet: skipped (no solution yet)"; fi
+    @if [ -n "{{ cp }}" ]; then dotnet format "{{ cp }}" --verify-no-changes --verbosity quiet; else echo "dotnet: skipped (no solution yet)"; fi
 
 # Lint all code
 lint:
-    @if [ -n "{{ts_projects}}" ]; then pnpm -r lint; else echo "ts: skipped (no workspace packages yet)"; fi
+    @if [ -n "{{ ts_projects }}" ]; then pnpm -r lint; else echo "ts: skipped (no workspace packages yet)"; fi
     @if [ -d apps/cli ]; then go -C apps/cli vet ./...; else echo "go: skipped"; fi
-    @if [ -n "{{cp}}" ]; then dotnet build "{{cp}}" -warnaserror; else echo "dotnet: skipped (no solution yet)"; fi
+    @if [ -n "{{ cp }}" ]; then dotnet build "{{ cp }}" -warnaserror; else echo "dotnet: skipped (no solution yet)"; fi
 
 # Typecheck all code
 typecheck:
-    @if [ -n "{{ts_projects}}" ]; then pnpm -r typecheck; else echo "ts: skipped (no workspace packages yet)"; fi
-    @if [ -n "{{cp}}" ]; then dotnet build "{{cp}}" -warnaserror; else echo "dotnet: skipped (no solution yet)"; fi
+    @if [ -n "{{ ts_projects }}" ]; then pnpm -r typecheck; else echo "ts: skipped (no workspace packages yet)"; fi
+    @if [ -n "{{ cp }}" ]; then dotnet build "{{ cp }}" -warnaserror; else echo "dotnet: skipped (no solution yet)"; fi
 
 # Build all code.
 #
@@ -76,15 +75,15 @@ typecheck:
 # after the module into the working directory. This recipe verifies compilation,
 # not the release artifact, so it must leave nothing behind.
 build:
-    @if [ -n "{{ts_projects}}" ]; then pnpm -r build; else echo "ts: skipped (no workspace packages yet)"; fi
+    @if [ -n "{{ ts_projects }}" ]; then pnpm -r build; else echo "ts: skipped (no workspace packages yet)"; fi
     @if [ -d apps/cli ]; then go -C apps/cli build -o /dev/null ./...; else echo "go: skipped"; fi
-    @if [ -n "{{cp}}" ]; then dotnet build "{{cp}}" -c Release; else echo "dotnet: skipped (no solution yet)"; fi
+    @if [ -n "{{ cp }}" ]; then dotnet build "{{ cp }}" -c Release; else echo "dotnet: skipped (no solution yet)"; fi
 
 # Run all tests
 test:
-    @if [ -n "{{ts_projects}}" ]; then pnpm -r test; else echo "ts: skipped (no workspace packages yet)"; fi
+    @if [ -n "{{ ts_projects }}" ]; then pnpm -r test; else echo "ts: skipped (no workspace packages yet)"; fi
     @if [ -d apps/cli ]; then go -C apps/cli test ./...; else echo "go: skipped"; fi
-    @if [ -n "{{cp}}" ]; then dotnet test "{{cp}}"; else echo "dotnet: skipped (no solution yet)"; fi
+    @if [ -n "{{ cp }}" ]; then dotnet test "{{ cp }}"; else echo "dotnet: skipped (no solution yet)"; fi
 
 # ── Security ───────────────────────────────────────────────────────────────
 

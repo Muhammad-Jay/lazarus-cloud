@@ -15,6 +15,11 @@
 nodejs 22
 golang 1.26.5
 dotnet 10.0.112
+# `just` is pinned because `just --fmt --check` is a CI gate. Its output is not
+# stable across releases: 1.58.0 rewrites `{{var}}` to `{{ var }}`, so an
+# unpinned CI runner picking up a new release would fail the hygiene job on an
+# unmodified file. The `hygiene` job installs this exact tag and asserts it.
+just 1.58.0
 
 # Rootless podman. Lazarus runs containers as your user with all capabilities
 # dropped; rootful podman or a mounted docker.sock defeats the sandbox the

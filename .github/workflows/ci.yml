@@ -129,9 +129,26 @@ jobs:
             exit 1
           fi
 
+      # Pinned to the .tool-versions version, because `just --fmt --check` is a gate
+      # and the formatter's output is not stable across releases. Installing
+      # "latest" would let a new just release fail this job on an unmodified file.
       - name: justfile is formatted
         run: |
-          curl -sSfL https://just.systems/install.sh | bash -s -- --to "$HOME/.local/bin"
+          set -euo pipefail
+          just_version="$(awk '$1 == "just" { print $2 }' .tool-versions)"
+          if [ -z "$just_version" ]; then
+            echo "::error::no just pin found in .tool-versions"
+            exit 1
+          fi
+          curl -sSfL https://just.systems/install.sh \
+            | bash -s -- --to "$HOME/.local/bin" --tag "$just_version"
+          installed="$("$HOME/.local/bin/just" --version | awk '{ print $2 }')"
+          echo "pinned:   $just_version"
+          echo "installed: $installed"
+          if [ "$installed" != "$just_version" ]; then
+            echo "::error::installed just ($installed) does not match the pin ($just_version)"
+            exit 1
+          fi
           "$HOME/.local/bin/just" --fmt --unstable --check
 
       # A contributor on one SDK and CI on another produces failures that look like
