@@ -7,8 +7,25 @@ name: CI
 # because a project has not been scaffolded yet trains people to ignore CI, which
 # is the opposite of what CI is for.
 #
-# What is NOT conditional: `contract-drift`, `secrets`, and the architecture rules.
-# Those apply from the first commit.
+# What is NOT conditional: `contract-drift`, `secrets`, and `hygiene`. Those apply
+# from the first commit.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# WHY A `detect` JOB INSTEAD OF hashFiles
+#
+# `hashFiles()` is NOT permitted in a job-level `if:`. Per GitHub's context
+# availability table, `jobs.<job_id>.if` allows only the functions
+# `always`, `cancelled`, `success`, and `failure`. `hashFiles` is available at
+# `jobs.<job_id>.steps.*` only. Using it here is a workflow parse error.
+#
+# A step-level preflight with `exit 0` is also wrong: `exit 0` ends that STEP, and
+# every later step in the job still runs.
+#
+# So detection happens once, in a job that checks out the tree and publishes its
+# findings as outputs. Downstream jobs gate on `needs.detect.outputs.*`. This also
+# mirrors the `ts_projects` and `cp` variables in the justfile, so local and CI
+# cannot disagree about what exists.
+# ─────────────────────────────────────────────────────────────────────────────
 
 on:
   push:
@@ -30,6 +47,61 @@ env:
   NODE_OPTIONS: --max-old-space-size=4096
 
 jobs:
+  # ── Detection ─────────────────────────────────────────────────────────────
+
+  detect:
+    name: Detect components
+    runs-on: ubuntu-latest
+    outputs:
+      typescript: ${{ steps.detect.outputs.typescript }}
+      go: ${{ steps.detect.outputs.go }}
+      dotnet: ${{ steps.detect.outputs.dotnet }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Inspect the tree
+        id: detect
+        run: |
+          set -euo pipefail
+
+          # TypeScript: any workspace package manifest. Mirrors `ts_projects` in
+          # the justfile.
+          if ls apps/web/package.json services/auth/package.json packages/*/package.json >/dev/null 2>&1; then
+            echo "typescript=true"  >> "$GITHUB_OUTPUT"
+            echo "  typescript: true"
+          else
+            echo "typescript=false" >> "$GITHUB_OUTPUT"
+            echo "  typescript: false (no workspace packages yet)"
+          fi
+
+          # Go: the CLI module. Mirrors the `[ -d apps/cli ]` guard.
+          if [ -f apps/cli/go.mod ]; then
+            echo "go=true"  >> "$GITHUB_OUTPUT"
+            echo "  go: true"
+          else
+            echo "go=false" >> "$GITHUB_OUTPUT"
+            echo "  go: false (no CLI module yet)"
+          fi
+
+          # .NET: a real solution file, not merely a directory. `dotnet format` on a
+          # directory with no solution exits 128 with an unhandled exception.
+          #
+          # Each extension is probed with `compgen -G` separately. A single
+          # `ls *.sln *.slnx` cannot be used here: ls exits non-zero when *any*
+          # operand is missing, so once a .sln exists but a .slnx does not, the
+          # condition would be permanently false and the .NET jobs would never run
+          # again — silently, with no failing run to notice.
+          if compgen -G "apps/control-plane/*.sln" >/dev/null \
+            || compgen -G "apps/control-plane/*.slnx" >/dev/null; then
+            echo "dotnet=true"  >> "$GITHUB_OUTPUT"
+            echo "  dotnet: true"
+          else
+            echo "dotnet=false" >> "$GITHUB_OUTPUT"
+            echo "  dotnet: false (no solution yet)"
+          fi
+
+          echo "Detection complete. Skipped jobs are reported as 'skipped', not as passes."
+
   # ── Baseline ──────────────────────────────────────────────────────────────
 
   hygiene:
@@ -86,8 +158,8 @@ jobs:
   typescript:
     name: TypeScript
     runs-on: ubuntu-latest
-    # Skipped until a workspace package exists.
-    if: ${{ hashFiles('pnpm-workspace.yaml', '**/package.json') != '' && hashFiles('**/package.json') != '' }}
+    needs: detect
+    if: needs.detect.outputs.typescript == 'true'
     steps:
       - uses: actions/checkout@v7
 
@@ -122,7 +194,8 @@ jobs:
   go:
     name: Go
     runs-on: ubuntu-latest
-    if: ${{ hashFiles('apps/cli/go.mod') != '' }}
+    needs: detect
+    if: needs.detect.outputs.go == 'true'
     defaults:
       run:
         working-directory: apps/cli
@@ -147,7 +220,7 @@ jobs:
         run: go vet ./...
 
       - name: Build
-        run: go build ./...
+        run: go build -o /dev/null ./...
 
       - name: Test
         run: go test -race -coverprofile=coverage.out ./...
@@ -165,7 +238,8 @@ jobs:
   dotnet:
     name: .NET
     runs-on: ubuntu-latest
-    if: ${{ hashFiles('apps/control-plane/*.sln', 'apps/control-plane/*.slnx') != '' }}
+    needs: detect
+    if: needs.detect.outputs.dotnet == 'true'
     steps:
       - uses: actions/checkout@v7
 
@@ -227,7 +301,8 @@ jobs:
   policy:
     name: Policy chokepoint
     runs-on: ubuntu-latest
-    if: ${{ hashFiles('apps/control-plane/*.sln', 'apps/control-plane/*.slnx') != '' }}
+    needs: detect
+    if: needs.detect.outputs.dotnet == 'true'
     steps:
       - uses: actions/checkout@v7
 
@@ -267,9 +342,10 @@ jobs:
   integration:
     name: Integration (real Postgres, real podman)
     runs-on: ubuntu-latest
-    # Needs privileged podman. Separate from the unit jobs because it is slow and
+    # Needs rootless podman. Separate from the unit jobs because it is slow and
     # needs a different runner capability.
-    if: ${{ hashFiles('apps/control-plane/*.sln', 'apps/control-plane/*.slnx') != '' }}
+    needs: detect
+    if: needs.detect.outputs.dotnet == 'true'
     steps:
       - uses: actions/checkout@v7
 
@@ -297,24 +373,37 @@ jobs:
   required:
     name: Required checks
     runs-on: ubuntu-latest
-    needs: [hygiene, typescript, go, dotnet, secrets, policy]
+    needs: [detect, hygiene, typescript, go, dotnet, secrets, policy]
     # Skipped jobs are not failures. Until the .NET solution exists, `dotnet` and
     # `policy` do not run, and the branch is not blocked by their absence.
     if: ${{ always() && !cancelled() }}
     steps:
       - name: Verify no required job failed
+        env:
+          DETECT: ${{ needs.detect.result }}
+          HYGIENE: ${{ needs.hygiene.result }}
+          TYPESCRIPT: ${{ needs.typescript.result }}
+          GO: ${{ needs.go.result }}
+          DOTNET: ${{ needs.dotnet.result }}
+          SECRETS: ${{ needs.secrets.result }}
+          POLICY: ${{ needs.policy.result }}
         run: |
-          echo "hygiene:   ${{ needs.hygiene.result }}"
-          echo "typescript:${{ needs.typescript.result }}"
-          echo "go:        ${{ needs.go.result }}"
-          echo "dotnet:    ${{ needs.dotnet.result }}"
-          echo "secrets:   ${{ needs.secrets.result }}"
-          echo "policy:    ${{ needs.policy.result }}"
-          for job in hygiene typescript go dotnet secrets policy; do
-            result="${{ needs.[job].result }}"
-            if [ "$result" = "failure" ] || [ "$result" = "cancelled" ]; then
-              echo "::error::$job did not pass ($result)"
-              exit 1
-            fi
+          set -euo pipefail
+
+          failed=0
+          for job in DETECT HYGIENE TYPESCRIPT GO DOTNET SECRETS POLICY; do
+            result="${!job}"
+            printf '  %-11s %s\n' "${job,,}" "$result"
+            case "$result" in
+              failure|cancelled)
+                echo "::error::${job,,} did not pass (${result})"
+                failed=1
+                ;;
+            esac
           done
+
+          if [ "$failed" -ne 0 ]; then
+            exit 1
+          fi
           echo "All required jobs passed or were skipped."
+          echo "A 'skipped' language job means that component does not exist yet — it is not a pass."

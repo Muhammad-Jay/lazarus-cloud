@@ -9,6 +9,22 @@ name: contract-drift
 #
 # It runs as its own workflow, separate from CI, so a contract violation is
 # reported as a contract violation instead of as a build failure.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# WHY A `detect` JOB INSTEAD OF hashFiles
+#
+# `hashFiles()` is NOT permitted in a job-level `if:`. Per GitHub's context
+# availability table, `jobs.<job_id>.if` allows only `always`, `cancelled`,
+# `success`, and `failure`. `hashFiles` is available at `jobs.<job_id>.steps.*`
+# only. Using it at job level is a workflow parse error.
+#
+# A step-level preflight with `exit 0` is also wrong: `exit 0` ends that STEP, and
+# every later step in the job still runs.
+#
+# So detection happens once, in a job that checks out the tree and publishes
+# whether the schema exists. Downstream jobs gate on that output. This mirrors
+# `just codegen`'s guards in the justfile.
+# ─────────────────────────────────────────────────────────────────────────────
 
 on:
   push:
@@ -38,11 +54,32 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  detect:
+    name: Detect schema
+    runs-on: ubuntu-latest
+    outputs:
+      schema: ${{ steps.detect.outputs.schema }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check whether the schema exists
+        id: detect
+        run: |
+          set -euo pipefail
+          if [ -f packages/spec/lazarus.schema.json ]; then
+            echo "schema=true"  >> "$GITHUB_OUTPUT"
+            echo "  packages/spec/lazarus.schema.json: present"
+          else
+            echo "schema=false" >> "$GITHUB_OUTPUT"
+            echo "  packages/spec/lazarus.schema.json: absent (lands in Phase 2)"
+            echo "  Nothing to verify. Downstream jobs will report as skipped."
+          fi
+
   drift:
     name: No drift from the schema
-    # Nothing to check until the schema exists. Not an error — the schema lands in
-    # Phase 2.
-    if: ${{ hashFiles('packages/spec/lazarus.schema.json') != '' }}
+    # Not an error before Phase 2: there is no contract yet to have drifted from.
+    needs: detect
+    if: needs.detect.outputs.schema == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -69,6 +106,7 @@ jobs:
 
       - name: Record the pre-generation tree
         run: |
+          set -euo pipefail
           # Record checksums so a generator that produces different output on a
           # clean checkout versus a warm one is caught too.
           find packages/spec packages/contracts apps/cli/internal/spec \
@@ -83,7 +121,8 @@ jobs:
       - name: Fail on any drift
         run: |
           set -euo pipefail
-          if [ -z "$(git status --porcelain packages/spec packages/contracts apps/cli/internal/spec apps/control-plane)" ]; then
+          changed="$(git status --porcelain packages/spec packages/contracts apps/cli/internal/spec apps/control-plane)"
+          if [ -z "$changed" ]; then
             echo "No drift. Generated output matches the schema."
             exit 0
           fi
@@ -97,7 +136,8 @@ jobs:
         run: |
           set -euo pipefail
           just codegen
-          if [ -n "$(git status --porcelain packages/spec packages/contracts apps/cli/internal/spec)" ]; then
+          changed="$(git status --porcelain packages/spec packages/contracts apps/cli/internal/spec)"
+          if [ -n "$changed" ]; then
             echo "::error::Codegen is not idempotent. Running it twice changed the output."
             git --no-pager diff
             exit 1
@@ -106,7 +146,8 @@ jobs:
 
   docs:
     name: Spec reference is current
-    if: ${{ hashFiles('packages/spec/lazarus.schema.json') != '' }}
+    needs: detect
+    if: needs.detect.outputs.schema == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -128,7 +169,8 @@ jobs:
         run: |
           set -euo pipefail
           just codegen
-          if [ -n "$(git status --porcelain docs/spec-reference.md)" ]; then
+          changed="$(git status --porcelain docs/spec-reference.md)"
+          if [ -n "$changed" ]; then
             echo "::error::docs/spec-reference.md is stale."
             echo "It is generated from the schema (ADR-0007). Run 'just codegen' and commit the result."
             git --no-pager diff docs/spec-reference.md
