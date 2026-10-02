@@ -1,0 +1,22 @@
+{
+  "name": "lazarus",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Lazarus — a self-hostable container automation platform.",
+  "license": "MIT",
+  "packageManager": "pnpm@10.29.3",
+  "engines": {
+    "node": ">=22",
+    "pnpm": ">=10"
+  },
+  "scripts": {
+    "typecheck": "just typecheck",
+    "lint": "just lint",
+    "test": "just test",
+    "build": "just build",
+    "check": "just check",
+    "format": "just fmt"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

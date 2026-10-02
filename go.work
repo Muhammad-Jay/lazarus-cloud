@@ -1,0 +1,11 @@
+// Lazarus — Go workspace
+//
+// Declared at the repository root so `apps/cli` resolves against the module
+// graph without a `replace` directive, and so a future Go service can be added
+// alongside it without touching the CLI's go.mod.
+//
+// Must stay in sync with `.tool-versions` (golang version).
+
+go 1.26.5
+
+use ./apps/cli

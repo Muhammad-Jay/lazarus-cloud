@@ -1,0 +1,78 @@
+# Lazarus — Docker ignore
+#
+# IMPORTANT: because `apps/web` depends on `packages/*` through pnpm workspaces,
+# the Docker build context is the REPOSITORY ROOT, not the app directory. This
+# file therefore must NOT exclude `packages/`, `apps/`, or `services/` — doing so
+# silently breaks the workspace build rather than failing loudly.
+
+# ── Local state and caches ─────────────────────────────────────────────────
+**/node_modules
+**/.next
+**/.turbo
+**/out
+**/dist
+**/coverage
+**/.cache
+**/.vite
+**/.vitest
+**/TestResults
+**/artifacts
+**/bin
+**/obj
+**/vendor
+**/__pycache__
+**/*.tsbuildinfo
+**/*.log
+
+# Version control and CI — present in the root context, never in an image
+.git
+.git/**
+.github
+**/.git
+**/.git/**
+
+# ── Secrets ────────────────────────────────────────────────────────────────
+# `.env.example` is the only environment file an image may ever contain.
+**/.env
+**/.env.*
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx
+**/secrets
+!**/.env.example
+
+# ── Local runtime state ────────────────────────────────────────────────────
+# These are volumes at runtime, not image content. Keeping them out of the
+# context prevents a developer's local data leaking into a published layer.
+data
+var
+storage
+tmp
+*.pid
+*.seed
+
+# ── Editor and OS cruft ────────────────────────────────────────────────────
+.idea
+.vscode
+**/*.swp
+**/*.swo
+**/*~
+.DS_Store
+Thumbs.db
+
+# ── Build tooling not needed at runtime ────────────────────────────────────
+# `justfile`, CI, and docs are excluded, but README/LICENSE/CHANGELOG are kept
+# because images ship them for provenance and licence compliance.
+justfile
+**/*.csproj.DotSettings.user
+**/.devcontainer
+
+# ── Keep these ─────────────────────────────────────────────────────────────
+# Explicitly un-ignored so the rules above can never catch them by accident.
+!packages/**
+!apps/**
+!services/**
+!README.md
+!LICENSE
+!CHANGELOG.md

@@ -1,0 +1,137 @@
+name: contract-drift
+
+# The spec schema is the sole contract (ADR-0007). TypeScript, C#, and Go types are
+# all generated from `packages/spec/lazarus.schema.json`.
+#
+# This job regenerates everything and fails on any diff. That is what makes
+# "the spec is the contract" enforceable rather than aspirational: change the
+# schema without regenerating, and this fails.
+#
+# It runs as its own workflow, separate from CI, so a contract violation is
+# reported as a contract violation instead of as a build failure.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/spec/**'
+      - 'packages/contracts/**'
+      - 'apps/control-plane/src/Lazarus.Modules.Specs/**'
+      - 'apps/cli/internal/spec/**'
+      - 'tools/codegen/**'
+      - '.github/workflows/contract-drift.yml'
+  pull_request:
+    paths:
+      - 'packages/spec/**'
+      - 'packages/contracts/**'
+      - 'apps/control-plane/src/Lazarus.Modules.Specs/**'
+      - 'apps/cli/internal/spec/**'
+      - 'tools/codegen/**'
+      - '.github/workflows/contract-drift.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  drift:
+    name: No drift from the schema
+    # Nothing to check until the schema exists. Not an error — the schema lands in
+    # Phase 2.
+    if: ${{ hashFiles('packages/spec/lazarus.schema.json') != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.29.3
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: apps/cli/go.mod
+          cache-dependency-path: apps/cli/go.sum
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Record the pre-generation tree
+        run: |
+          # Record checksums so a generator that produces different output on a
+          # clean checkout versus a warm one is caught too.
+          find packages/spec packages/contracts apps/cli/internal/spec \
+            -type f -name '*.*' 2>/dev/null | sort | xargs -r sha256sum > /tmp/before.txt || true
+          cat /tmp/before.txt
+
+      - name: Regenerate
+        run: |
+          set -euo pipefail
+          just codegen
+
+      - name: Fail on any drift
+        run: |
+          set -euo pipefail
+          if [ -z "$(git status --porcelain packages/spec packages/contracts apps/cli/internal/spec apps/control-plane)" ]; then
+            echo "No drift. Generated output matches the schema."
+            exit 0
+          fi
+          echo "::error::Generated code is out of date with packages/spec/lazarus.schema.json"
+          echo "Generated code is never hand-edited (AGENTS.md §4.7). Run 'just codegen' and commit the result."
+          git --no-pager diff --stat
+          git --no-pager diff
+          exit 1
+
+      - name: Codegen is idempotent
+        run: |
+          set -euo pipefail
+          just codegen
+          if [ -n "$(git status --porcelain packages/spec packages/contracts apps/cli/internal/spec)" ]; then
+            echo "::error::Codegen is not idempotent. Running it twice changed the output."
+            git --no-pager diff
+            exit 1
+          fi
+          echo "Codegen is idempotent."
+
+  docs:
+    name: Spec reference is current
+    if: ${{ hashFiles('packages/spec/lazarus.schema.json') != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.29.3
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # AGENTS.md §4.6: a schema change ships with its regeneration and its
+      # documentation update in the same PR.
+      - name: docs/spec-reference.md is generated, not hand-written
+        run: |
+          set -euo pipefail
+          just codegen
+          if [ -n "$(git status --porcelain docs/spec-reference.md)" ]; then
+            echo "::error::docs/spec-reference.md is stale."
+            echo "It is generated from the schema (ADR-0007). Run 'just codegen' and commit the result."
+            git --no-pager diff docs/spec-reference.md
+            exit 1
+          fi
+          echo "Spec reference is current."

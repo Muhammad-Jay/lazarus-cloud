@@ -1,0 +1,85 @@
+name: Bug report
+description: Something behaves incorrectly
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Do not report security vulnerabilities here.** See [SECURITY.md](https://github.com/Muhammad-Jay/lazarus-cloud/blob/main/SECURITY.md)
+        for private reporting.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you observed, and what you expected instead.
+      placeholder: |
+        Expected: the deployment restarts when the image digest changes.
+        Actual:   it keeps running the previous image until I delete the endpoint.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction
+      description: The smallest thing that shows the problem.
+      render: shell
+      placeholder: |
+        spec:
+          apiVersion: lazarus.dev/v1
+          service: repro
+          image: ghcr.io/acme/repro@sha256:...
+        # then: lazarus apply -f repro.yaml
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: |
+        Relevant output, with secrets removed. `lazarus logs <deployment-id>` or the
+        control-plane log around the failure.
+      render: shell
+
+  - type: input
+    id: version
+    attributes:
+      label: Lazarus version
+      placeholder: 0.1.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Which surface
+      options:
+        - Automation API
+        - Dashboard
+        - CLI
+        - Web terminal
+        - Edge / TLS
+        - CI / GitHub App
+        - Install / self-hosting
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Installation shape
+      description: |
+        Select all that apply. This determines what is possible, so it is not
+        incidental information.
+      options:
+        - Self-hosted, owned domain with wildcard TLS
+        - Self-hosted, no domain (self-signed CA)
+        - Local development (LAZARUS_DEV_MODE)
+        - Running as root
+        - Rootless podman
+        - Rootful podman / docker.sock mounted
+    validations:
+      required: true

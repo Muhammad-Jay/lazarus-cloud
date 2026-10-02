@@ -1,0 +1,26 @@
+# Lazarus — tool versions
+#
+# Pinned so a contributor and CI agree on what "works" means.
+#
+# Format is the plain asdf style, which is the common denominator: `asdf`, `mise`,
+# and `fnm` all read it. Do NOT convert this to mise's TOML form — that breaks
+# asdf users for no gain.
+#
+# Plugin names are asdf plugin names: nodejs, golang, dotnet, podman.
+#
+# `dotnet` must stay in sync with `global.json`. The `hygiene` CI job fails if they
+# diverge, because a contributor on one SDK and CI on another produces failures
+# that look like bugs.
+
+nodejs 22
+golang 1.26.5
+dotnet 10.0.112
+
+# Rootless podman. Lazarus runs containers as your user with all capabilities
+# dropped; rootful podman or a mounted docker.sock defeats the sandbox the
+# platform depends on. See SECURITY.md.
+podman 5
+
+# pnpm is NOT pinned here. It is managed by corepack via the `packageManager`
+# field in package.json, so the pinned version and the running version cannot
+# disagree.

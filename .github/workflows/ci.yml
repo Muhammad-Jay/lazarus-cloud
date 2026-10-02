@@ -1,0 +1,320 @@
+name: CI
+
+# The gate. One command, locally and here: `just check`.
+#
+# Jobs are conditional on the code existing. The repository is built bottom-up, so
+# for a long while there is no TypeScript and no .NET solution. A CI run that fails
+# because a project has not been scaffolded yet trains people to ignore CI, which
+# is the opposite of what CI is for.
+#
+# What is NOT conditional: `contract-drift`, `secrets`, and the architecture rules.
+# Those apply from the first commit.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  NODE_OPTIONS: --max-old-space-size=4096
+
+jobs:
+  # ── Baseline ──────────────────────────────────────────────────────────────
+
+  hygiene:
+    name: Repository hygiene
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check for committed build output
+        run: |
+          if git ls-files --error-unmatch '**/node_modules' >/dev/null 2>&1; then
+            echo "::error::node_modules is committed"
+            exit 1
+          fi
+          if git ls-files --error-unmatch '**/bin' >/dev/null 2>&1; then
+            echo "::error::bin/ output is committed"
+            exit 1
+          fi
+          if git ls-files --error-unmatch '**/obj' >/dev/null 2>&1; then
+            echo "::error::obj/ output is committed"
+            exit 1
+          fi
+          if git ls-files --error-unmatch '**/.env' >/dev/null 2>&1; then
+            echo "::error::a .env file is committed. See AGENTS.md."
+            exit 1
+          fi
+
+      - name: justfile is formatted
+        run: |
+          curl -sSfL https://just.systems/install.sh | bash -s -- --to "$HOME/.local/bin"
+          "$HOME/.local/bin/just" --fmt --unstable --check
+
+      # A contributor on one SDK and CI on another produces failures that look like
+      # bugs in the code. The two pins must agree (see .tool-versions).
+      - name: dotnet pin matches global.json
+        run: |
+          set -euo pipefail
+          toolversions="$(awk '$1 == "dotnet" { print $2 }' .tool-versions)"
+          globaljson="$(python3 -c "import json;print(json.load(open('global.json'))['sdk']['version'])")"
+          if [ -z "$toolversions" ]; then
+            echo "::error::no dotnet pin found in .tool-versions"
+            exit 1
+          fi
+          echo ".tool-versions: $toolversions"
+          echo "global.json:    $globaljson"
+          if [ "$toolversions" != "$globaljson" ]; then
+            echo "::error::dotnet pin mismatch. Update .tool-versions or global.json so they agree."
+            exit 1
+          fi
+          echo "dotnet pins agree."
+
+  # ── TypeScript ────────────────────────────────────────────────────────────
+
+  typescript:
+    name: TypeScript
+    runs-on: ubuntu-latest
+    # Skipped until a workspace package exists.
+    if: ${{ hashFiles('pnpm-workspace.yaml', '**/package.json') != '' && hashFiles('**/package.json') != '' }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.29.3
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Format check
+        run: pnpm -r fmt-check
+
+      - name: Lint
+        run: pnpm -r lint
+
+      - name: Typecheck
+        run: pnpm -r typecheck
+
+      - name: Test
+        run: pnpm -r test
+
+      - name: Build
+        run: pnpm -r build
+
+  # ── Go ────────────────────────────────────────────────────────────────────
+
+  go:
+    name: Go
+    runs-on: ubuntu-latest
+    if: ${{ hashFiles('apps/cli/go.mod') != '' }}
+    defaults:
+      run:
+        working-directory: apps/cli
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: apps/cli/go.mod
+          cache-dependency-path: apps/cli/go.sum
+
+      - name: gofmt
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "::error::files need gofmt"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Build
+        run: go build ./...
+
+      - name: Test
+        run: go test -race -coverprofile=coverage.out ./...
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: go-coverage
+          path: apps/cli/coverage.out
+          retention-days: 7
+
+  # ── .NET ──────────────────────────────────────────────────────────────────
+
+  dotnet:
+    name: .NET
+    runs-on: ubuntu-latest
+    if: ${{ hashFiles('apps/control-plane/*.sln', 'apps/control-plane/*.slnx') != '' }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - run: dotnet restore
+
+      - name: Format check
+        run: dotnet format --verify-no-changes --verbosity quiet
+
+      - name: Build (warnings are errors)
+        run: dotnet build -c Release -warnaserror --no-restore
+
+      - name: Test
+        run: dotnet test -c Release --no-build --collect:"XPlat Code Coverage" --results-directory ./TestResults
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: dotnet-test-results
+          path: apps/control-plane/TestResults
+          retention-days: 7
+
+  # ── Security ──────────────────────────────────────────────────────────────
+
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # The previous implementation leaked a GitHub PAT into source. This job is
+      # the reason that cannot recur unnoticed.
+      #
+      # GITLEAKS_CONFIG is set explicitly rather than relying on auto-detection:
+      # the action's documentation is ambiguous about whether the dotfile
+      # `.gitleaks.toml` or `gitleaks.toml` is auto-detected, and guessing wrong
+      # would silently fall back to the default ruleset. `just secrets` passes the
+      # same path via --config, so local and CI read one config.
+      - name: Scan history and tree
+        uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
+          # Fail the build rather than annotating, so a leak blocks a merge.
+          # No SARIF upload: a leaked value must not end up in an artifact.
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: false
+
+      # NOTE: gitleaks-action requires a free GITLEAKS_LICENSE for repositories
+      # owned by an *organisation*. Personal accounts do not need one. If this
+      # repo moves to an org, add the license as an encrypted secret or this job
+      # will start failing.
+
+  policy:
+    name: Policy chokepoint
+    runs-on: ubuntu-latest
+    if: ${{ hashFiles('apps/control-plane/*.sln', 'apps/control-plane/*.slnx') != '' }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - run: dotnet restore
+
+      # Runtime and Exec code reachable without a PolicyEvaluator decision is a
+      # build failure (AGENTS.md §4.5). The architecture tests run here as their own
+      # job so an escape in the boundary is never hidden inside a passing test run.
+      - name: Architecture tests
+        run: |
+          dotnet test \
+            --filter 'FullyQualifiedName~ArchitectureTests' \
+            --logger 'trx;LogFileName=architecture.trx' \
+            --results-directory ./TestResults
+
+      - name: Policy decision matrix
+        run: |
+          dotnet test \
+            --filter 'FullyQualifiedName~PolicyEvaluatorTests' \
+            --logger 'trx;LogFileName=policy.trx' \
+            --results-directory ./TestResults
+
+      - name: Upload policy results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: policy-test-results
+          path: apps/control-plane/TestResults
+          retention-days: 14
+
+  # ── Integration ───────────────────────────────────────────────────────────
+
+  integration:
+    name: Integration (real Postgres, real podman)
+    runs-on: ubuntu-latest
+    # Needs privileged podman. Separate from the unit jobs because it is slow and
+    # needs a different runner capability.
+    if: ${{ hashFiles('apps/control-plane/*.sln', 'apps/control-plane/*.slnx') != '' }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Install podman
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y podman uidmap slirp4netns fuse-overlayfs
+
+      - name: Start rootless podman
+        run: |
+          sudo systemctl enable --now podman.socket
+          podman info
+
+      - run: dotnet restore
+
+      - name: Integration tests
+        run: dotnet test -c Release --filter 'Category=Integration'
+
+  # ── Summary ───────────────────────────────────────────────────────────────
+
+  required:
+    name: Required checks
+    runs-on: ubuntu-latest
+    needs: [hygiene, typescript, go, dotnet, secrets, policy]
+    # Skipped jobs are not failures. Until the .NET solution exists, `dotnet` and
+    # `policy` do not run, and the branch is not blocked by their absence.
+    if: ${{ always() && !cancelled() }}
+    steps:
+      - name: Verify no required job failed
+        run: |
+          echo "hygiene:   ${{ needs.hygiene.result }}"
+          echo "typescript:${{ needs.typescript.result }}"
+          echo "go:        ${{ needs.go.result }}"
+          echo "dotnet:    ${{ needs.dotnet.result }}"
+          echo "secrets:   ${{ needs.secrets.result }}"
+          echo "policy:    ${{ needs.policy.result }}"
+          for job in hygiene typescript go dotnet secrets policy; do
+            result="${{ needs.[job].result }}"
+            if [ "$result" = "failure" ] || [ "$result" = "cancelled" ]; then
+              echo "::error::$job did not pass ($result)"
+              exit 1
+            fi
+          done
+          echo "All required jobs passed or were skipped."

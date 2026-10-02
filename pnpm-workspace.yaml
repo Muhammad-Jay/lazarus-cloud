@@ -1,0 +1,21 @@
+# Lazarus — pnpm workspace
+#
+# pnpm is the only package manager. Do not add npm/yarn lockfiles (see
+# `.gitattributes`, which treats them as generated noise).
+#
+# `catalog:` below pins dependency versions in ONE place. Packages reference
+# catalogued deps as `"react": "catalog:"`, so a security bump is a single edit
+# plus a lockfile refresh, not N edits that drift apart.
+
+packages:
+  - 'apps/web'
+  - 'services/auth'
+  - 'packages/*'
+
+# Shared, centrally-pinned dependency versions.
+# Add a dependency here rather than pinning a version inline in a package, unless
+# the pin is deliberately package-specific — in which case add a comment saying why.
+catalog:
+  '@types/node': ^24.0.0
+  typescript: ^5.9.0
+  zod: ^4.0.0

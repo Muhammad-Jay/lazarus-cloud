@@ -1,0 +1,35 @@
+# gitleaks configuration
+#
+# Purpose: fail the build when a credential is committed. The previous
+# implementation leaked a GitHub personal access token into source
+# (`front-end/lib/github.test.ts:4`) and nothing caught it. That is the gap this
+# closes.
+#
+# This file is the single configuration for both paths:
+#   - local:  `just secrets`
+#   - CI:     .github/workflows/ci.yml (the action auto-detects this file)
+# Two implementations of the same check would drift; one config cannot.
+
+title = "Lazarus"
+
+[extend]
+# Keep the upstream ruleset. These cover GitHub tokens, Slack, AWS, private keys,
+# connection strings, and the generic high-entropy strings that catch unknown
+# formats. Do not disable a rule without an ADR explaining the false positive it
+# was causing — a disabled rule is a hole with a comment above it.
+useDefault = true
+
+# There is deliberately no [allowlist] section.
+#
+# An allowlist is the usual way secret scanners get neutered: someone pastes a
+# real token into a doc, the scanner fires, the rule gets "allowlisted" for that
+# path, and now that path is unscanned. That trade is wrong here.
+#
+# If the scanner fires on a false positive — a placeholder, a fixture, a test
+# vector — fix it at the source:
+#   - rotate the credential if it is real. Always. A scanner hit is worth the
+#     thirty seconds of checking.
+#   - restructure the value so it is not token-shaped (use `ghp_<example>` or
+#     build it from parts in a test fixture).
+#   - a narrowly-scoped regex allowlist with a comment naming the exact finding is
+#     acceptable. A path-level allowlist for a whole directory is not.

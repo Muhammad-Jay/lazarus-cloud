@@ -1,0 +1,40 @@
+# Lazarus — EditorConfig
+# https://editorconfig.org
+#
+# Rationale for the choices that matter:
+#   - LF everywhere. No CRLF churn in diffs.
+#   - 2-space indent for TS/JSON/YAML, 4-space for .NET and Go (their toolchains
+#     and conventions both assume it), tabs nowhere.
+#   - `trim_trailing_whitespace` is safe here because no language in this repo
+#     uses significant trailing whitespace.
+#   - `insert_final_newline` is always true. POSIX text files, no exceptions.
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+[*.go]
+indent_style = tab
+
+[{*.cs,*.csx,*.vb,*.fsproj,*.props,*.targets}]
+indent_size = 4
+
+[*.{json,jsonc,yaml,yml,ts,tsx,js,jsx,mjs,cjs,css,scss,html,md,mdx}]
+indent_size = 2
+
+[{Makefile,justfile,*.mk}]
+indent_style = tab
+
+[*.md]
+# Two trailing spaces are a hard line break in Markdown, so this rule is
+# deliberately relaxed for prose.
+trim_trailing_whitespace = false
+
+[*.{sh,bash,zsh}]
+indent_size = 2

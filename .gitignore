@@ -1,0 +1,97 @@
+# ── Secrets ────────────────────────────────────────────────────────────────
+# Never commit real values. `.env.example` files ARE committed; `.env` is not.
+.env
+.env.*
+!.env.example
+!**/.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+# Runtime secret material, not source.
+#
+# Anchored deliberately. A bare `secrets/` pattern also matches
+# `apps/control-plane/src/Lazarus.Modules.Secrets/` on a case-insensitive
+# filesystem (macOS), which would silently drop that entire module from version
+# control. The Secrets module is source and must stay tracked.
+/infra/secrets/
+/infra/certs/
+**/data/secrets/
+**/*.secret.json
+
+# ── Node / TypeScript ───────────────────────────────────────────────────────
+node_modules/
+.pnpm-store/
+.yarn/
+.pnp.*
+*.tsbuildinfo
+next-env.d.ts
+.turbo/
+.nx/
+coverage/
+*.lcov
+.vitest/
+.vite/
+
+# ── .NET ───────────────────────────────────────────────────────────────────
+[Bb]in/
+[Oo]bj/
+[Dd]ebug/
+[Rr]elease/
+artifacts/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.DotSettings.user
+.vs/
+TestResults/
+[Cc]overage*/
+*.trx
+*.coverage
+*.opencover.xml
+
+# ── Go ─────────────────────────────────────────────────────────────────────
+# `go build` inside apps/cli writes an executable named after the module, so the
+# default artifact is `cli`, not `lazarus`. Both names are ignored here. The
+# `just build` recipe emits to /dev/null, but a developer running `go build` by
+# hand should not produce an untracked 3 MB binary.
+/lazarus
+/lazarus.exe
+/apps/cli/cli
+/apps/cli/lazarus
+*.test
+*.out
+vendor/
+
+# ── Podman / containers ────────────────────────────────────────────────────
+*.tar
+*.tar.gz
+*.image
+
+# ── Local runtime state ────────────────────────────────────────────────────
+/data/
+/var/
+/storage/
+/tmp/
+*.log
+*.pid
+*.seed
+
+# ── Docs build output ──────────────────────────────────────────────────────
+/site/
+/docs/api/*.html
+/docs/api/*.md
+
+# ── Tooling caches ─────────────────────────────────────────────────────────
+.cache/
+.eslintcache
+.mypy_cache/
+.pytest_cache/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db

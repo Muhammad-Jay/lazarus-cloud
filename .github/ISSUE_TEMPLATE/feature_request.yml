@@ -1,0 +1,67 @@
+name: Feature request
+description: Propose a capability
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Lazarus has deliberate **anti-goals** (`AGENTS.md` §1). Before filing, check
+        that the request is not one of them:
+
+        - A flow / node / graph editor — no canvas, no React Flow, ever
+        - Document or collaborative editing
+        - A general-purpose Docker or Kubernetes orchestrator
+        - A general-purpose CI provider
+        - A cloud IDE
+
+        If your request needs any of those, say how it fits the product instead.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do that Lazarus does not let you do?
+      placeholder: |
+        I want to deploy three services that need to come up in order, and today I
+        have to deploy them one at a time and wait for each.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you have in mind
+      description: |
+        A spec, a CLI shape, an API shape, or a UI. If you have written one, paste
+        it — it is more useful than prose.
+      render: yaml
+
+  - type: textarea
+    id: boundaries
+    attributes:
+      label: What this would touch
+      description: |
+        Which module does this belong to? Does it add a spec field, change the
+        tenancy model, or require a new operation to go through `PolicyEvaluator`?
+      options:
+        - Adds a spec field
+        - Changes tenancy
+        - New privileged operation (needs Policy)
+        - New external dependency
+        - Makes self-hosting harder
+        - None of these
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: adr
+    attributes:
+      label: ADR required
+      description: |
+        Some changes need an architecture decision record before they can be built.
+        Tick the ones that apply and it will be assigned.
+      options:
+        - label: This moves a module boundary or creates a module
+        - label: This adds an external dependency
+        - label: This makes self-hosting harder
+        - label: This is a breaking spec change (needs a new apiVersion)

@@ -1,0 +1,100 @@
+# Dependency updates.
+#
+# Groups keep the diff reviewable: a weekly batch of patches for NuGet and Go is
+# easier to verify than the same number of individual PRs. Security updates are
+# never grouped — they arrive on their own schedule because they may need to be
+# prioritised.
+#
+# Self-hostability constrains this file. Adding a dependency is an ADR (§14), so a
+# new runtime, a new package manager, or a new external service is not a version
+# bump. Dependabot can raise them; it cannot justify them.
+
+version: 2
+
+updates:
+  # ── .NET ──────────────────────────────────────────────────────────────────
+  - package-ecosystem: nuget
+    directory: /apps/control-plane
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: [dependencies, dotnet]
+    commit-message:
+      prefix: 'chore(deps)'
+    groups:
+      nuget-patch:
+        update-types: [minor, patch]
+      nuget-minor:
+        update-types: [minor]
+      nuget-security:
+        applies-to: security-updates
+
+  # ── Go ────────────────────────────────────────────────────────────────────
+  - package-ecosystem: gomod
+    directory: /apps/cli
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: [dependencies, go]
+    commit-message:
+      prefix: 'chore(deps)'
+    groups:
+      gomod-patch:
+        update-types: [minor, patch]
+      gomod-minor:
+        update-types: [minor]
+      gomod-security:
+        applies-to: security-updates
+
+  # ── TypeScript ────────────────────────────────────────────────────────────
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: [dependencies, typescript]
+    commit-message:
+      prefix: 'chore(deps)'
+    groups:
+      # Catalog versions are shared across the workspace, so they are grouped to
+      # avoid two PRs claiming the same catalog entry.
+      pnpm-catalog:
+        patterns: ['*']
+      pnpm-security:
+        applies-to: security-updates
+
+  # ── GitHub Actions ────────────────────────────────────────────────────────
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    labels: [dependencies, ci]
+    commit-message:
+      prefix: 'chore(deps)'
+    groups:
+      actions-patch:
+        update-types: [minor, patch]
+      actions-security:
+        applies-to: security-updates
+
+  # ── Docker ────────────────────────────────────────────────────────────────
+  - package-ecosystem: docker
+    directory: /infra
+    schedule:
+      interval: weekly
+    labels: [dependencies, docker]
+    commit-message:
+      prefix: 'chore(deps)'
+    groups:
+      # Base images are digest-pinned (ADR-0010). Dependabot updates the digest;
+      # the architecture, and therefore the risk, does not change on its own.
+      docker-base-images:
+        patterns: ['*']
+
+# Digest pinning means a tag update is a real change to review, not a no-op.
+ignore:
+  - dependency-name: '*'
+    update-types: ['version-update:semver-patch']
