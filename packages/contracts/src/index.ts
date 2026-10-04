@@ -16,6 +16,7 @@ export type {
   CommandSuggestion,
   DocumentationRef,
   DraftConflict,
+  ExecutableName,
   ExecutionEvent,
   ExecutionRequest,
   InlineCode,
@@ -25,6 +26,7 @@ export type {
   InlineLink,
   InlineText,
   IsoTimestamp,
+  LazarusInteraction,
   PolicyDecision,
   RichOutput,
   SuggestionSet,
@@ -36,6 +38,7 @@ export type {
 } from './generated/interaction.js';
 
 export type {
+  LazarusSession,
   ReconnectionTicket,
   SessionDescriptor,
   SessionEvent,

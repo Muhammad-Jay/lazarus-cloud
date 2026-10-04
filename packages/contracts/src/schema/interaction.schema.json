@@ -76,6 +76,12 @@
       "format": "uuid",
       "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
     },
+    "executableName": {
+      "description": "The program to run: an absolute path or a bare name resolved against the image's PATH by the runtime. The same shape the experience schema requires of a documented command, so a draft cannot carry something the contract would never have declared. No shell metacharacters, because there is no shell in the product to inject into (ADR-0013).",
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._/-]+$",
+      "maxLength": 256
+    },
     "colorRole": {
       "description": "A semantic colour role, never a literal colour value. The presentation layer maps a role to a token from packages/tokens (ADR-0018), so a raw colour cannot reach a component and contrast stays checkable in one place.",
       "type": "string",
@@ -125,7 +131,7 @@
       "required": ["executable", "arguments"],
       "additionalProperties": false,
       "properties": {
-        "executable": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "executable": { "$ref": "#/$defs/executableName" },
         "arguments": { "type": "array", "items": { "$ref": "#/$defs/commandArgument" }, "maxItems": 128 },
         "sourceCommandId": {
           "description": "The documented command this draft started from, if any. Discovery provenance only; it is never treated as authorisation (ADR-0015).",
@@ -241,7 +247,7 @@
       "additionalProperties": false,
       "properties": {
         "sessionId": { "$ref": "#/$defs/uuid" },
-        "executable": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "executable": { "$ref": "#/$defs/executableName" },
         "arguments": { "type": "array", "items": { "$ref": "#/$defs/commandArgument" }, "maxItems": 128 },
         "sourceCommandId": { "type": ["string", "null"], "maxLength": 64 },
         "clientTimestamp": { "$ref": "#/$defs/isoTimestamp" }

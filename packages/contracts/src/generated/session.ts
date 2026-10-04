@@ -15,7 +15,7 @@ export interface LazarusSession {
    */
   ticket?: ReconnectionTicket | null;
   /**
-   * Where to subscribe for events. Relative to the operator-configured base address, never an absolute host, so no code path can hardcode an endpoint.
+   * Where to subscribe for events. Always a root-relative path resolved against the operator-configured base address, never an absolute host and never protocol-relative, so no code path can hardcode or be redirected to an endpoint (AGENTS.md section 5).
    */
   hubUrl?: string;
 }
@@ -94,5 +94,5 @@ export interface StartSessionRequest {
 
 export type Uuid = string;
 /**
- * A discriminated union rather than a state string plus nullable fields, so an exhaustive switch is the only way to read it and a missed case is a compile error.
+ * The session lifecycle position. Exhaustive by construction: the generated type is a union of literals, so a client switch on it is checked at compile time. Per-state payloads live on the event that carries the transition, not as nullable fields on the descriptor.
  */

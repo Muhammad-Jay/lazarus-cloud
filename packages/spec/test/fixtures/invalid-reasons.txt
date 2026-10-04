@@ -1,18 +1,18 @@
 # Invalid experience fixtures, and exactly why each must be rejected.
 #
-# One `filename|keyword|instancePath|reason` per line. The test asserts the
-# fixture fails with that keyword at that path, so a fixture cannot pass by
-# being rejected for an unrelated reason, and cannot silently start being
-# accepted for a valid one. Adding a fixture means adding a line here.
+# One `filename|keyword|instancePath|missingProperty|reason` per line, with `-`
+# for missingProperty when the keyword is not `required`. The test asserts
+# the fixture fails with that keyword at that path (and, for `required`, that
+# that exact property is the absent one).
 
-api-version-unknown-shape.json|pattern|/apiVersion|apiVersion must be a versioned value
-command-shell-string.json|pattern|/commands/0/executable|a command is an argument list, never a shell string
-env-secret-looking-name-lowercase.json|pattern|/environment/env|environment variable names are uppercase by convention and shape
-image-tag-not-digest.json|pattern|/environment/image|a tag is not an identity; images must be digest-pinned
-policy-effect-allow.json|const|/policies/0/effect|a policy entry that widens rather than tightens must be unexpressible
-resource-memory-out-of-range.json|maximum|/environment/resources/memoryMb|memory bounds are an invariant, not a hint
-resources-partial.json|required|/environment/resources|an omitted resource bound must fail rather than mean unbounded
-secret-carries-value.json|additionalProperties|/secrets/0|an experience names a secret; it never carries one
-unknown-top-level-field.json|additionalProperties|/|an unknown field must not be silently ignored
-workdir-absolute.json|not|/environment/workdir|absolute paths are not expressible as a workdir
-workdir-escapes-root.json|not|/environment/workdir|a relative path escaping the session root must be rejected at validation
+api-version-unknown-shape.json|pattern|/apiVersion|-|apiVersion must be a versioned value
+command-shell-string.json|pattern|/commands/0/executable|-|a command is an argument list, never a shell string
+env-secret-looking-name-lowercase.json|pattern|/environment/env|-|environment variable names are uppercase by convention and shape
+image-tag-not-digest.json|pattern|/environment/image|-|a tag is not an identity; images must be digest-pinned
+policy-effect-allow.json|const|/policies/0/effect|-|a policy entry that widens rather than tightens must be unexpressible
+resource-memory-out-of-range.json|maximum|/environment/resources/memoryMb|-|memory bounds are an invariant, not a hint
+resources-partial.json|required|/environment/resources|pids|an omitted resource bound must fail rather than mean unbounded
+secret-carries-value.json|additionalProperties|/secrets/0|-|an experience names a secret; it never carries one
+unknown-top-level-field.json|additionalProperties|/|-|an unknown field must not be silently ignored
+workdir-absolute.json|not|/environment/workdir|-|absolute paths are not expressible as a workdir
+workdir-escapes-root.json|not|/environment/workdir|-|a relative path escaping the session root must be rejected at validation

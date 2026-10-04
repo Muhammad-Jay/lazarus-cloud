@@ -4,7 +4,8 @@
   "environment": {
     "image": "docker.io/library/debian@sha256:0000000000000000000000000000000000000000000000000000000000000000",
     "resources": {
-      "memoryMb": 512
+      "memoryMb": 512,
+      "cpus": 1
     }
   }
 }

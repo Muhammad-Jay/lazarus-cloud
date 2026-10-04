@@ -80,6 +80,21 @@ const invalidFixtures = fixturesIn('invalid');
 
 const fixtureName = (path: string): string => path.slice(path.lastIndexOf('/') + 1);
 
+/**
+ * Ajv reports `required` against the parent object, so the absent property only
+ * appears in the error's `params`. Asserting it means a fixture cannot pass
+ * because some *other* required field is absent.
+ */
+const matchesMissingProperty = (error: ErrorObject, expected: string): boolean => {
+  if (expected === '-') {
+    return true;
+  }
+
+  const params = error.params as { readonly missingProperty?: string };
+
+  return params.missingProperty === expected;
+};
+
 /** Ajv reports the document root as an empty path; the reason table uses `/`. */
 const normalisePath = (instancePath: string): string =>
   instancePath.length === 0 ? '/' : instancePath;
@@ -87,14 +102,17 @@ const normalisePath = (instancePath: string): string =>
 interface InvalidReason {
   readonly keyword: string;
   readonly instancePath: string;
+  /** For `required`, the exact property that must be absent. `-` otherwise. */
+  readonly missingProperty: string;
   readonly reason: string;
 }
 
 /**
- * One `filename|keyword|instancePath|reason` per line. Asserting the keyword and
- * the path — not merely that validation failed — is what stops a fixture from
- * passing for an unrelated reason, and stops a schema change from quietly
- * making a boundary unexpressible.
+ * One `filename|keyword|instancePath|missingProperty|reason` per line, with `-`
+ * for `missingProperty` when the keyword is not `required`. Asserting the keyword,
+ * the path, and the absent property — not merely that validation failed — is what
+ * stops a fixture from passing for an unrelated reason, and stops a schema change
+ * from quietly making a boundary unexpressible.
  */
 const readInvalidReasons = (): ReadonlyMap<string, InvalidReason> => {
   const raw = readFileSync(
@@ -106,21 +124,23 @@ const readInvalidReasons = (): ReadonlyMap<string, InvalidReason> => {
     .split('\n')
     .filter((line: string) => line.trim().length > 0 && !line.startsWith('#'))
     .map((line: string) => {
-      const [filename, keyword, instancePath, reason, ...rest] = line.split('|');
+      const [filename, keyword, instancePath, missingProperty, reason, ...rest] =
+        line.split('|');
 
       if (
         filename === undefined ||
         keyword === undefined ||
         instancePath === undefined ||
+        missingProperty === undefined ||
         reason === undefined ||
         rest.length > 0
       ) {
         throw new Error(
-          `invalid-reasons.txt line is not filename|keyword|instancePath|reason: ${line}`,
+          `invalid-reasons.txt line is not filename|keyword|instancePath|missingProperty|reason: ${line}`,
         );
       }
 
-      return [filename, { keyword, instancePath, reason }] as const;
+      return [filename, { keyword, instancePath, missingProperty, reason }] as const;
     });
 
   return new Map(entries);
@@ -175,7 +195,8 @@ describe('rejected fixtures', () => {
       errors.some(
         (error: ErrorObject) =>
           error.keyword === expected.keyword &&
-          normalisePath(error.instancePath) === normalisePath(expected.instancePath),
+          normalisePath(error.instancePath) === normalisePath(expected.instancePath) &&
+          matchesMissingProperty(error, expected.missingProperty),
       ),
       `expected ${name} to fail with ${expected.keyword} at ${expected.instancePath} (${expected.reason}), got ${errors
         .map((error: ErrorObject) => `${error.keyword} at ${normalisePath(error.instancePath)}`)

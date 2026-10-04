@@ -1,0 +1,15 @@
+# Invalid interaction fixtures, and exactly why each must be rejected.
+#
+# One `filename|keyword|instancePath|missingProperty|reason` per line, with `-`
+# for missingProperty when the keyword is not `required`. The test asserts the
+# fixture fails with that keyword at that path (and, for `required`, that that
+# exact property is the absent one). Adding a fixture means adding a line here.
+
+action-without-label.json|required|/actions/items/0|label|an action the reader cannot read is not an action
+block-missing-id.json|required|/blocks/blocks/0|id|every block needs a stable id, or a reconnected client cannot deduplicate
+denied-without-decision.json|required|/blocks/blocks/0|decision|a denial must carry its decision; a bare notice would hide why
+draft-shell-string.json|pattern|/draft/executable|-|a draft is an argument list, never a shell string (ADR-0013)
+exit-code-out-of-range.json|maximum|/blocks/blocks/0/exitCode|-|an exit code outside the real range is not a result the program printed
+literal-color-role.json|enum|/blocks/blocks/0/output/spans/0/style/color|-|a literal colour cannot cross the contract; presentation maps a role to a token (ADR-0018)
+unknown-block-kind.json|const|/blocks/blocks/0/kind|-|an unknown block kind must not be silently accepted; clients switch exhaustively
+unknown-top-level-field.json|additionalProperties|/|-|a pty, or any unknown field, must not be silently ignored

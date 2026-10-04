@@ -31,7 +31,7 @@ export interface ActionSet {
 export type ColorRole =
   "default" | "muted" | "accent" | "success" | "warning" | "danger" | "info" | "stdout" | "stderr";
 /**
- * An RFC 3339 instant. Never a bare number, so two runtimes cannot disagree about the unit.
+ * The program to run: an absolute path or a bare name resolved against the image's PATH by the runtime. The same shape the experience schema requires of a documented command, so a draft cannot carry something the contract would never have declared. No shell metacharacters, because there is no shell in the product to inject into (ADR-0013).
  */
 
 export interface CommandArgument {
@@ -46,7 +46,7 @@ export interface CommandArgument {
  */
 
 export interface CommandDraft {
-  executable: string;
+  executable: ExecutableName;
   /**
    * @maxItems 128
    */
@@ -97,6 +97,11 @@ export interface DraftConflict {
  * Where the reader currently is: which experience, which document, and where in the reading order. A change to this can conflict with an edited draft (see DraftConflict).
  */
 
+export type ExecutableName = string;
+/**
+ * An RFC 3339 instant. Never a bare number, so two runtimes cannot disagree about the unit.
+ */
+
 export type ExecutionEvent =
   | {
       kind: "executionStarted";
@@ -144,7 +149,7 @@ export type ExecutionEvent =
 
 export interface ExecutionRequest {
   sessionId: Uuid;
-  executable: string;
+  executable: ExecutableName;
   /**
    * @maxItems 128
    */
