@@ -20,7 +20,7 @@ its dependencies are green.
 > at the provider, authenticated as you. No code change makes a leaked token
 > safe — deleting the file that contained it does not invalidate it.
 
-- [ ] **0.1** Revoke the GitHub classic personal access token committed at
+- [x] **0.1** Revoke the GitHub classic personal access token committed at
       `lib/github.test.ts:4` in `Lazarus-Cloud-Automation-Platform`. **This is the
       highest-priority item in the repository.**
 
@@ -69,7 +69,7 @@ its dependencies are green.
   *Recurrence is now caught:* `just secrets` runs gitleaks against the working tree
   and full history using `.gitleaks.toml`, and CI runs the same check
   unconditionally. A PAT-shaped string in a commit now fails the build.
-- [ ] **0.2** Rotate the Supabase anon key exposed in `front-end/.env.local`.
+- [x] **0.2** Rotate the Supabase anon key exposed in `front-end/.env.local`.
       Supabase is being removed entirely; the key must be invalidated so the
       deleted `.env.local` is not a live credential.
 - [x] **0.3** Surveyed the legacy trees before deletion. Variable *names* only,
@@ -153,526 +153,512 @@ per `ADR-0008`, and `0.3` must be complete first.
 
 ---
 
-## Phase 2 — The spec contract
+## Phase 2 — Contracts
 
-The contract every other phase obeys. Nothing user-facing starts before this.
+The contracts everything else obeys. Nothing user-facing starts before this.
+Three schemas, each versioned independently (`ADR-0016`).
 
-- [ ] **2.1** Write `packages/spec/lazarus.schema.json`: JSON Schema 2020-12,
-      `$id` addressable, `apiVersion` discriminated on major version.
-- [ ] **2.2** Model the surface: `Service`, `source` (git/inline/upload),
-      `build`, `runtime` (image, ports, env, limits, health), `exposure`,
-      `pipeline`, `secrets` (by reference only).
-- [ ] **2.3** **Omit** any field for privileged mode, host mounts, host
-      networking, added capabilities, or host namespaces. They must be
-      inexpressible (`AGENTS.md` §4.5).
-- [ ] **2.4** Generate TypeScript types and a validator (Ajv) into
-      `packages/spec`. Types are generated, never hand-written.
-- [ ] **2.5** Codegen tool in `tools/codegen`: schema → C# types and → Go types.
-- [ ] **2.6** Golden-file fixtures: valid specs, each invalid case, and a
-      spec using every optional field.
-- [ ] **2.7** `docs/spec-reference.md` documenting each field.
-- [ ] **2.8** `contract-drift` CI: regenerate all three languages and fail on any
-      diff against committed output.
+- [ ] **2.1** `packages/spec/lazarus.schema.json` — the **experience** contract:
+      `apiVersion`, `title`, `description`, `documentation[]`, `environment`,
+      `commands[]`, `tasks[]`, `secrets[]`, `policies`. One schema, two
+      encodings: `lazarus.yaml` for humans, `lazarus.json` for agents and CI.
+      *Deliberately absent:* any field for privileged mode, host mounts, host
+      networking, `docker.sock`, added capabilities, or host namespaces. They are
+      not expressible, so no request can ask for them (`ADR-0015`).
+- [ ] **2.2** `packages/contracts/src/schema/interaction.schema.json` — state
+      shapes, `CommandDraft`, `CommandSuggestion`, `Action`, `DocumentationRef`,
+      `TranscriptBlock`, `InlineContent`, `ExecutionRequest`, `ExecutionEvent`,
+      `RichOutput`.
+- [ ] **2.3** `packages/contracts/src/schema/session.schema.json` — session
+      descriptor, TTL, reconnection metadata, workspace context.
+      *No command text and no output. The server does not hold history
+      (`ADR-0019`).*
+- [ ] **2.4** Every schema declares `$id` with an `apiVersion`, is
+      `additionalProperties: false` at each object level unless a field is
+      explicitly open, and uses discriminated unions rather than optional flags.
+- [ ] **2.5** Golden-file tests: each fixture parses to an expected model, and
+      each rejected fixture is rejected for a **named** reason.
+- [ ] **2.6** `docs/experience-reference.md` and `docs/contracts-reference.md`.
+      Delete `docs/spec-reference.md`.
+- [ ] **2.7** `contract-drift` CI fails when a schema changes without its
+      regeneration or its reference doc.
 
-**Accept:** `just codegen` is idempotent; a deliberately broken spec fails
-validation with a precise, actionable message; a hand-edit to a generated file
-fails CI.
+**Accept:** `pnpm -F @lazarus/contracts test` green; every schema validates its
+fixtures; drift CI fails on a deliberately broken regeneration.
 
-**Risk:** medium. Everything downstream codegen depends on this. Getting the
-schema wrong is expensive to change later — additive changes are cheap, removals
-are breaking and require a new `apiVersion`.
+**Risk:** low, but this is the keystone. Everything downstream is generated from
+it, so a wrong decision here is expensive and a broken regeneration here is cheap
+to fix.
 
 ---
 
-## Phase 3 — .NET control plane skeleton
+## Phase 3 — Code generation targets
 
-- [ ] **3.1** `apps/control-plane/Lazarus.sln` with
-      `Directory.Build.props` and central package management
-      (`Directory.Packages.props`).
-- [ ] **3.2** `Lazarus.Domain`: `Entity`, `AggregateRoot`, `ValueObject`,
+- [ ] **3.1** Generate TypeScript types into
+      `packages/contracts/src/generated` and `Lazarus.Contracts` from the same
+      schemas. Generated output is committed.
+- [ ] **3.2** Generate the Go spec types in `apps/cli` from the experience schema.
+- [ ] **3.3** Generator is deterministic: same schema in, byte-identical output
+      out. Sorted keys, no timestamps in generated files.
+- [ ] **3.4** `just codegen` regenerates every target, and `just check` fails if
+      regeneration produces a diff.
+- [ ] **3.5** Never hand-edited, enforced by a header check over
+      `packages/contracts/src/generated` and `Lazarus.Contracts`.
+
+**Accept:** `just codegen && git diff --exit-code` is clean on an unchanged tree;
+a schema edit without regeneration fails `just check`.
+
+**Risk:** low.
+
+---
+
+## Phase 4 — Design tokens
+
+- [ ] **4.1** `packages/tokens` imports nothing at all. One source of truth for
+      colour, spacing, radius, shadow, and motion.
+- [ ] **4.2** Semantic names describe **role**, not order: `--surface-raised`,
+      `--text-muted`. No `--surface-3`.
+- [ ] **4.3** Generate CSS custom properties and a TS module from that one source,
+      so the CSS and TS surfaces cannot drift. Output is committed.
+- [ ] **4.4** Light and dark themes defined as token values. Dark mode swaps
+      tokens; it adds **no** component-level `dark:` variants.
+- [ ] **4.5** Tokens are contrast-checked in both themes and the check is a test.
+- [ ] **4.6** The raw palette is referenceable **only** inside `packages/tokens`.
+
+**Accept:** `packages/tokens` has zero dependencies; every token used elsewhere
+resolves; contrast tests pass in both themes.
+
+**Risk:** low.
+
+---
+
+## Phase 5 — Boundary enforcement
+
+Rules that are enforced rather than reviewed (`AGENTS.md` §4.7).
+
+- [ ] **5.1** Declare the frontend package graph as data. Lint fails on any edge
+      that is not in it.
+- [ ] **5.2** `packages/tokens`, `packages/contracts`, `packages/interaction` are
+      leaves with a fixed, minimal dependency set. Growth fails the build.
+- [ ] **5.3** Deep imports are banned. Subpath exports are the only door between
+      packages.
+- [ ] **5.4** **Phantom dependency** check: importing a package not declared in
+      the importing package's `package.json` fails. Every declared dependency is
+      also checked to be used.
+- [ ] **5.5** Ban raw visual values outside `packages/tokens`: Tailwind colour
+      utilities, arbitrary values, `rgb()`/`hsl()`/`oklch()`, and `style={{}}`
+      carrying a visual property (`ADR-0018`).
+- [ ] **5.6** Banned-pattern rules for the existing list: `any`, `@ts-ignore`,
+      `@ts-expect-error`, `eslint-disable`, empty `catch`, `.js` in a TS project.
+- [ ] **5.7** `packages/interaction` must not import React, DOM types, or any
+      transport. A new dependency there fails the build.
+
+**Accept:** each rule has a test that fails on a deliberately violating fixture;
+`pnpm lint` is green on a clean tree.
+
+**Risk:** low. Annoying when it fires on a legitimate case, which is the intent.
+
+---
+
+## Phase 6 — The interaction core
+
+`@lazarus/interaction`. Framework-free. Imports only `@lazarus/contracts`
+(`ADR-0014`).
+
+- [ ] **6.1** State shape and a pure `(state, action) => state` reducer. No
+      React, DOM, fetch, storage, or timers.
+- [ ] **6.2** Execution arrives as an `ExecutionEvent` stream applied to the
+      reducer. Output is never read back out of component state.
+- [ ] **6.3** Transcript normalisation, done **once**, where an `ExecutionEvent`
+      becomes a `TranscriptBlock`. Presentation consumes blocks and never parses
+      raw output or reorders blocks.
+- [ ] **6.4** Suggestion ranking, in the package. A client never ranks.
+- [ ] **6.5** Draft-conflict resolution: a context change replaces only an
+      unmodified draft; an edited draft produces `draftConflict` and the UI asks.
+- [ ] **6.6** ANSI to colour mapping is a **filter**, not an emulator. Cursor and
+      erase semantics are stripped. Never `innerHTML` (`ADR-0013`).
+- [ ] **6.7** Table-driven Vitest suite over every action×event pair.
+
+**Accept:** `pnpm -F @lazarus/interaction test` green; the package's dependency
+list is exactly `@lazarus/contracts`; a table-driven case exists for each action
+and each event.
+
+**Risk:** medium. This is the piece a second client would otherwise
+reimplement, so an under-specified transition here becomes a divergence later.
+
+---
+
+## Phase 7 — Control-plane skeleton
+
+- [ ] **7.1** `Lazarus.Domain`, `Lazarus.Application`, `Lazarus.Contracts`,
+      `Lazarus.Infrastructure`, `Lazarus.EventBus`, `Lazarus.Api`. Layer direction
+      enforced by NetArchTest (`AGENTS.md` §4.1).
+- [ ] **7.2** Shared kernel holds only `Entity`, `AggregateRoot`, `ValueObject`,
       `DomainEvent`, `IDomainEvent`, `TenantId`, `Result<T>`, `Error`, `IClock`.
-      References nothing.
-- [ ] **3.3** `Lazarus.Application`: `ICommandHandler<,>`,
-      `IQueryHandler<,>`, `IUnitOfWork`, `IDomainEventDispatcher`,
-      `IPodmanClient`, `ICurrentUser`, `IPolicyEvaluator`, cross-module DTOs.
-- [ ] **3.4** `Lazarus.Infrastructure`: `LazarusDbContext`, Postgres via Npgsql,
-      migrations, tenancy resolution, OTel, Serilog.
-- [ ] **3.5** `Lazarus.EventBus` and `Lazarus.Api` skeleton: DI composition root,
-      health checks (`/health/live`, `/health/ready`), ProblemDetails middleware,
-      exception handler.
-- [ ] **3.6** Module template: a `ModuleTemplate` showing the expected
-      `Domain`/`Application`/`Api` layout, and the first real module
-      (`Tenancy`) built from it.
-- [ ] **3.7** Typed options classes validated at startup. No string-typed
-      config lookups.
-- [ ] **3.8** `Lazarus.Architecture.Tests` (NetArchTest) enforcing §4.1 and §4.2.
-- [ ] **3.9** CI: build, format check, test, analyzers.
+- [ ] **7.3** Modules: `Experiences`, `Documentation`, `Environments`, `Sessions`,
+      `Execution`, `Policy`, `Runtime`, `Tenancy`, `Identity`, `Audit`. Ten
+      modules, each owning its entities and EF configuration.
+- [ ] **7.4** Module isolation is a NetArchTest rule: no module references another
+      module's `Domain`, `Application`, or `Infrastructure` project.
+- [ ] **7.5** Controllers are translation only, and a NetArchTest fails one that
+      exceeds the line budget.
+- [ ] **7.6** Typed options classes validated at startup. No string-typed
+      configuration lookups.
 
-**Accept:** `just cp-build && just cp-test` green; the architecture test fails if
-a module is given a sibling reference; `/health/ready` returns 200 against
-Testcontainers Postgres.
+**Accept:** `dotnet build` and `dotnet test` green; architecture tests fail on a
+deliberate violation of layer direction or module isolation.
 
 **Risk:** low.
 
 ---
 
-## Phase 4 — EventBus
+## Phase 8 — EventBus and the durable outbox
 
-- [ ] **4.1** `IDomainEventHandler<TEvent>` and a DI-registered dispatcher.
-- [ ] **4.2** Bounded `Channel<object>` + `BackgroundService` pump, per-event-type
-      handler resolution, parallel fan-out.
-- [ ] **4.3** Publish from an EF `SaveChangesInterceptor`, **after** commit.
-- [ ] **4.4** Error isolation: one handler's failure must not stop the pump or
-      block other handlers. Structured log + OTel event.
-- [ ] **4.5** Backpressure policy and graceful shutdown draining.
-- [ ] **4.6** Tests: dispatch, isolation, duplicate-delivery idempotency,
-      shutdown drain.
-- [ ] **4.7** Record the durability tradeoff in `ADR-0003`, including the outbox
-      option if a transition must not be lost.
+- [ ] **8.1** In-process dispatch, at-most-once, for transitions that may be lost.
+- [ ] **8.2** Durable outbox for transitions that must not be lost. **Execution
+      lifecycle events are designated as such** (`ADR-0013`).
+- [ ] **8.3** Dispatch happens **after** commit. A handler never holds a
+      transaction open across a process spawn or a network call.
+- [ ] **8.4** Handlers are idempotent and retry-safe. A handler never calls
+      another module.
+- [ ] **8.5** Events are past-tense facts: `SessionCreated`, `CommandSubmitted`,
+      `ExecutionCompleted`, `ExperiencePublished`.
 
-**Accept:** a handler that throws does not prevent a sibling handler from
-running; no event is dispatched before the transaction commits.
-
-**Risk:** medium. In-memory means at-most-once. Documented, not hidden.
-
----
-
-## Phase 5 — Auth service
-
-- [ ] **5.1** `services/auth`: Better Auth standalone, owning the `auth` Postgres
-      schema via the Kysely adapter.
-- [ ] **5.2** `organization` plugin. The JWT's organization claim is the
-      `tenant_id` for all Lazarus resources — one identity source, no duplicated
-      user table.
-- [ ] **5.3** JWT plugin with **ES256** (not the EdDSA default) so
-      `Microsoft.AspNetCore.Authentication.JwtBearer` validates it without
-      special configuration.
-- [ ] **5.4** JWKS served at the auth service's `/.well-known/jwks.json`, proxied
-      from Better Auth's native `/api/auth/jwks` by `services/auth` itself, so the
-      well-known path is a stable contract (see `ADR-0004`).
-- [ ] **5.5** Scoped **API keys** for the Automation API and the CLI, distinct
-      from user sessions, hash-stored.
-- [ ] **5.6** `.NET` integration test proving a token issued by this service
-      validates in `apps/control-plane`. This test is the contract.
-- [ ] **5.7** Device-authorization flow for the Go CLI; tokens stored in the OS
-      keyring.
-- [ ] **5.8** Verify secret rotation works with `sessionCookieCache`. **This needs
-      its own ADR** — session cache invalidation is unrelated to `ADR-0003`, which
-      covers in-memory domain events.
-
-**Accept:** `5.6` passes; `jwks` returns RFC 7517; a revoked session cannot mint
-a token; an API key cannot escalate to an admin scope.
-
-**Risk:** medium. This is the trust root for the entire system. If ES256 does not
-validate cleanly in .NET, resolve it here, not later.
-
----
-
-## Phase 6 — Tenancy and identity
-
-- [ ] **6.1** `tenant_id` on **every** tenant-scoped table. No exceptions.
-- [ ] **6.2** Postgres **row-level security** policies per table, as
-      defence-in-depth behind the application filter.
-- [ ] **6.3** `ICurrentUser` resolved from the validated token only. Never from a
-      header the client sets freely, a body, a query parameter, or a URL segment.
-- [ ] **6.4** Authorization policies: `Tenant`, `TenantAdmin`, `AutomationClient`.
-- [ ] **6.5** `Identity` module: user projection, API keys, service accounts.
-- [ ] **6.6** `Tenancy` module: tenant profile, quota, policy profile, base
-      domain (**install-time config**, never hardcoded), DNS verification status.
-- [ ] **6.7** Integration tests: cross-tenant read returns nothing; cross-tenant
-      write is rejected; RLS holds even with a bug in the query filter.
-
-**Accept:** `6.7` proves isolation twice over. A tenant cannot name another
-tenant in any request and reach its data.
-
-**Risk:** high. Tenant isolation is the single defect class that loses the
-product's credibility. Build the negative tests before the happy path.
-
----
-
-## Phase 7 — Policy — the security chokepoint
-
-**Must land before any container code exists.** Runtime and Exec cannot be
-written safely without it.
-
-- [ ] **7.1** `PolicyEvaluator` returning a decision: `Allow`, `Deny(reason)`,
-      or `Constrain(modifications)`. Policy only ever subtracts.
-- [ ] **7.2** Image policy: allowlisted registries and base images. Tag resolved
-      to a **digest**; a tag is not an identity.
-- [ ] **7.3** Resource policy: memory, CPU, PIDs, disk. Unbounded → deny.
-- [ ] **7.4** Network policy: egress allowlist per tenant. Default deny.
-- [ ] **7.5** Command policy: which images permit shell/exec, and whether a
-      tenant may spawn ad-hoc containers.
-- [ ] **7.6** Concurrency and rate policy: per-tenant concurrent deployments,
-      concurrent exec sessions, requests per minute.
-- [ ] **7.7** Table-driven test over the **full** decision matrix, including
-      every deny path.
-- [ ] **7.8** Architecture test proving no `Runtime` or `Exec` entry point is
-      reachable without a policy decision, and that `PolicyEvaluator` has no
-      method which can grant capability.
-- [ ] **7.9** Audit record for every decision: actor, tenant, target, decision,
-      reason, timestamp.
-
-**Accept:** `7.8` is green and cannot be bypassed; an unknown image is denied; a
-spec requesting privileged mode fails validation *and* is denied if it somehow
-arrives.
-
-**Risk:** high, and deliberately early. Everything downstream inherits this.
-
----
-
-## Phase 8 — Runtime
-
-- [ ] **8.1** `IPodmanClient` over the podman **REST API socket**, or
-      `ProcessStartInfo` with `ArgumentList`. Never a shell string. Never
-      interpolated.
-- [ ] **8.2** Build with build context isolation; never upload host secrets or
-      `node_modules` equivalents by accident.
-- [ ] **8.3** Pull with digest pinning; record the resulting digest on the release.
-- [ ] **8.4** Sandbox enforcement: rootless, `--cap-drop=all`,
-      `--security-opt=no-new-privileges`, seccomp, read-only rootfs where
-      possible, cgroup memory/CPU/PID caps, no host namespaces, no host mounts,
-      no `docker.sock`.
-- [ ] **8.5** Container lifecycle: create, start, stop, remove; idempotent.
-- [ ] **8.6** One pod per service, so an app's containers share a network.
-- [ ] **8.7** **Dynamic host-port allocation** with collision avoidance and
-      release on teardown.
-- [ ] **8.8** Log streaming with backpressure, an idle timeout, and a bounded
-      buffer.
-- [ ] **8.9** Every call carries a `CancellationToken` and a timeout.
-- [ ] **8.10** Integration tests against real podman, skipped when unavailable.
-
-**Accept:** `8.4` holds under inspection — no privileged flag, no host path, no
-added capability reaches the container; `8.7` never double-binds under
-concurrent deploys.
-
-**Risk:** high. This is the sandbox boundary. Assume anything that reaches podman
-is attacker-controlled.
-
----
-
-## Phase 9 — Delivery core
-
-- [ ] **9.1** `Specs` module: spec version storage, provenance (repo commit /
-      dashboard edit / API call), validation results.
-- [ ] **9.2** `Services` module: service aggregate, slug (subdomain label,
-      collision-checked), links to release and endpoints.
-- [ ] **9.3** `Releases` module: immutable artifact from a spec — built or pulled
-      image digest, resolved config, provenance.
-- [ ] **9.4** `Deployments` module: the state machine
-      `Queued → Building → Starting → Healthy → (Failed | Stopped)`, with
-      rollback to the previous healthy release.
-- [ ] **9.5** State transitions are guarded; illegal transitions are rejected, not
-      ignored.
-- [ ] **9.6** Health checks per the spec's `runtime.health`, driving the
-      `Healthy` transition.
-- [ ] **9.7** Deployment is **idempotent** for a given
-      `(service, release)` pair — no duplicate containers on retry.
-- [ ] **9.8** Cancellation and timeout on every state transition.
-- [ ] **9.9** Domain events: `DeploymentStarted`, `DeploymentBecameHealthy`,
-      `DeploymentFailed`, `ImageBuilt`, `ReleaseCreated`.
-
-**Accept:** the full matrix of illegal transitions is tested; a retried deploy
-does not create a second container; a failed health check triggers rollback
-without human intervention.
-
-**Risk:** high.
-
----
-
-## Phase 10 — Endpoints and edge routing
-
-- [ ] **10.1** `Endpoints` module: exposed port, subdomain, TLS status, routing
-      intent, health.
-- [ ] **10.2** Subdomain allocation with collision handling and reserved words
-      (`www`, `api`, `admin`, `mail`).
-- [ ] **10.3** Caddy configuration rendered from the endpoint set.
-- [ ] **10.4** Wildcard ACME when the install owns a domain.
-- [ ] **10.5** **Self-hosted without a domain**: self-signed CA + LAN hostname,
-      and a documented `--insecure` dev path. No code path assumes a real cert.
-- [ ] **10.6** Hot reload on endpoint change, with the previous config retained
-      until the new one validates.
-- [ ] **10.7** Route to the container's allocated host port.
-- [ ] **10.8** Tests: config rendering is deterministic; a malformed config never
-      replaces a working one.
-
-**Accept:** `docker compose up` on a LAN-only host yields reachable HTTPS
-endpoints without any external dependency; a wildcard-domain install obtains a
-valid cert.
+**Accept:** a handler replayed twice produces the same state; a crash between
+commit and handler completion does not lose an execution event.
 
 **Risk:** medium.
 
 ---
 
-## Phase 11 — Exec and the web terminal
+## Phase 9 — Auth service
 
-- [ ] **11.1** `Exec` module: session aggregate with lifecycle
-      `Requested → Attaching → Active → Closed`, tenant-scoped.
-- [ ] **11.2** PTY allocation inside the container via podman exec.
-- [ ] **11.3** One shared exec pipeline serves both the interactive terminal and
-      the CI step runner. One code path, not two.
-- [ ] **11.4** Streaming over SignalR to a group scoped to the session.
-- [ ] **11.5** **Policy-gated**: shell access requires an image policy grant;
-      ad-hoc container spawn may be disabled per tenant.
-- [ ] **11.6** Idle timeout, absolute session limit, concurrent-session cap.
-- [ ] **11.7** Full audit: who opened which session in which container, when, and
-      the commands issued.
-- [ ] **11.8** Reconnection: a dropped stream resumes, or the session is closed
-      cleanly. Never an orphaned container from a lost connection.
+- [ ] **9.1** `services/auth` (Better Auth) owns the `auth` PostgreSQL schema and
+      publishes ES256 JWKS.
+- [ ] **9.2** The control plane validates the **standard ES256/JWKS token**
+      locally. It does not reference Better Auth framework types or internals —
+      it is a JWKS consumer, not a Better Auth client (`ADR-0004`).
+- [ ] **9.3** Nothing in the platform requires a network call to validate an
+      identity.
+- [ ] **9.4** `apps/web` holds a server-side session cookie. The browser never
+      receives a long-lived API credential.
 
-**Accept:** every exec is policy-checked and audited; a closed browser leaves no
-running container; concurrent sessions hit the cap.
-
-**Risk:** high. A remote shell is the most privileged surface in the product.
-
----
-
-## Phase 12 — Sources (GitHub)
-
-- [ ] **12.1** GitHub App: manifest, registration flow, private key handling.
-- [ ] **12.2** Installations and repository links.
-- [ ] **12.3** Repository clone/fetch using installation credentials, held as
-      sealed secrets.
-- [ ] **12.4** Webhook receiver with **signature verification** on every request.
-- [ ] **12.5** Commit status checks posted back to GitHub.
-- [ ] **12.6** Rate-limit and retry handling against GitHub's API, with backoff.
-- [ ] **12.7** `Sources` module entities and events.
-
-**Accept:** an unsigned webhook is rejected; a revoked installation stops
-deployments cleanly; credentials never appear in a log.
-
-**Risk:** medium.
-
----
-
-## Phase 13 — Automation and CI
-
-- [ ] **13.1** `Automation` module: the Automation API —
-      `POST /v1/automations` accepting `{ spec, options }`, returning a deployment
-      id immediately.
-- [ ] **13.2** API-key auth, scope-checked, rate-limited, quota-bound.
-- [ ] **13.3** Trigger sources: webhook, manual, API. One pipeline definition.
-- [ ] **13.4** Stages from the spec's `pipeline`: `checkout, build, test, scan,
-      deploy`.
-- [ ] **13.5** Job and step state machine, persisted, resumable.
-- [ ] **13.6** Per-step logs streamed over SignalR and retained.
-- [ ] **13.7** Failure stops the pipeline; deploy failure rolls back.
-- [ ] **13.8** Concurrency limits: one pipeline per service, cancellable.
-
-**Accept:** an AI agent can POST a spec and receive a deployment id plus a log
-stream with no further interaction; a failing test blocks the deploy; a duplicate
-trigger does not start a second pipeline.
-
-**Risk:** high. This is the untrusted-input-to-RCE surface. `7.x` must be solid.
-
----
-
-## Phase 14 — Secrets
-
-- [ ] **14.1** `Secrets` module: per-tenant namespaced secret metadata.
-- [ ] **14.2** Envelope encryption at rest; master key from environment, never
-      from the database.
-- [ ] **14.3** Values **never returned** by any API — write-only, redacted
-      everywhere.
-- [ ] **14.4** Specs reference secrets **by name only**.
-- [ ] **14.5** Injection at container create time via environment, never baked
-      into an image layer.
-- [ ] **14.6** Rotation without redeploy where the container supports it.
-- [ ] **14.7** Audit on read, write, and delete.
-
-**Accept:** a secret value cannot be retrieved through any endpoint, including
-admin endpoints; no secret appears in a build log or an error message.
-
-**Risk:** medium.
-
----
-
-## Phase 15 — SignalR and shared contracts
-
-- [ ] **15.1** Typed hubs per module (`DeploymentsHub`, `LogsHub`, `ExecHub`,
-      `PipelineHub`), declared in the module's `Api` project.
-- [ ] **15.2** **Tenant-scoped groups**: `t:{tenantId}`, `s:{serviceId}`,
-      `d:{deploymentId}`, `x:{sessionId}`. Every `SendAsync` is group-scoped.
-- [ ] **15.3** Every hub method derives tenant and actor from the connection's
-      claims, never from its payload.
-- [ ] **15.4** Hub manifest emitted to `packages/contracts/hub-manifest.json`:
-      hub name, method names, DTO shapes.
-- [ ] **15.5** TypeScript declarations in `packages/realtime` checked against
-      that manifest by CI.
-- [ ] **15.6** Backpressure on outbound sends; a slow client cannot exhaust memory.
-- [ ] **15.7** `WebApplicationFactory` tests proving one tenant never receives
-      another's events.
-
-**Accept:** `15.7` is green — no cross-tenant event delivery is possible; a
-method renamed on the C# side fails CI until the TS side is updated.
-
-**Risk:** medium.
-
----
-
-## Phase 16 — OpenAPI and client generation
-
-- [ ] **16.1** OpenAPI document emitted from the ASP.NET host.
-- [ ] **16.2** `tools/codegen` generates a typed TypeScript client into
-      `packages/api-client`.
-- [ ] **16.3** Generated error handling normalises `ProblemDetails` into one
-      typed app-level error.
-- [ ] **16.4** `contract-drift` CI fails when the committed client differs from a
-      fresh generation.
-- [ ] **16.5** No hand-written `fetch` calls remain in `packages/`.
-
-**Accept:** regeneration is idempotent; drift fails CI; a new endpoint requires no
-manual client work in the web app.
+**Accept:** a token minted by `services/auth` is accepted by the control plane
+with the auth service stopped.
 
 **Risk:** low.
 
 ---
 
-## Phase 17 — Front-end foundation
+## Phase 10 — Tenancy and identity
 
-- [ ] **17.1** `apps/web` on Next.js 16.3.8 (Active LTS) with React 19.3,
-      App Router, Turbopack.
-- [ ] **17.2** `strict: true`. No `ignoreBuildErrors`, no `ignoreDuringBuilds`.
-- [ ] **17.3** ESLint 9 flat config with `typescript-eslint` 8; Prettier for
-      formatting. `eslint-disable` is not permitted (see banned list).
-- [ ] **17.4** Vitest + Testing Library; Playwright for critical journeys.
-- [ ] **17.5** `knip` in CI to fail on unused exports, files, and dependencies.
-- [ ] **17.6** Workspace packages created: `ui`, `api-client`, `realtime`,
-      `auth-client`, `lib-utils`, `testing`, `config`.
-- [ ] **17.7** One logger wrapper per package; no `console.*` in `packages/`.
-- [ ] **17.8** Server Components by default; client components only where
-      interactivity requires them.
-- [ ] **17.9** Env vars validated with a typed schema at startup; `.env.example`
-      committed.
+- [ ] **10.1** Multi-tenancy with PostgreSQL row-level security, on top of
+      `ADR-0005`.
+- [ ] **10.2** Tenant scope comes from the **validated token**, never a body,
+      query parameter, or URL segment. A caller may never choose their tenant.
+- [ ] **10.3** Every query actually filters by tenant. An integration test asserts
+      this against real Postgres via Testcontainers.
+- [ ] **10.4** Cross-module reads go through DTOs in `Lazarus.Application` or the
+      event bus. Never an entity reference or a cross-module join.
 
-**Accept:** `just web-typecheck` and `just web-lint` are clean with zero
-suppressions; `knip` reports nothing.
+**Accept:** a token for tenant A cannot read tenant B's rows through any endpoint;
+the RLS integration test fails if the filter is removed.
+
+**Risk:** medium. This is the single highest-value security test in the backend.
+
+---
+
+## Phase 11 — Policy — the chokepoint
+
+- [ ] **11.1** `PolicyEvaluator` adjudicates **every** execution at runtime,
+      declared or not (`ADR-0015`).
+- [ ] **11.2** Policy only ever subtracts. No request field, spec field, or
+      operator flag grants a capability.
+- [ ] **11.3** Deny by default. Unknown image, unlisted base, unbounded resource,
+      unlisted registry → deny.
+- [ ] **11.4** Policy is a chokepoint. NetArchTest fails if reachable `Runtime` or
+      `Execution` code has no policy decision in its path.
+- [ ] **11.5** Every decision is audited: actor, tenant, target, decision, reason,
+      timestamp. A denial is as auditable as an allow.
+- [ ] **11.6** Table-driven unit tests over the **full** decision matrix,
+      including every denial reason.
+- [ ] **11.7** Denials are explanatory. A user typing something reasonable and
+      undeclared will be refused often enough that the message must say why.
+
+**Accept:** the matrix test is exhaustive; the architecture test fails if a
+runtime call site is added without a decision.
+
+**Risk:** high if started late. Do not let execution code land before this phase.
+
+---
+
+## Phase 12 — Environments
+
+The prepared, versioned image plus the temporary writable session layer.
+
+- [ ] **12.1** An environment is a versioned, digest-pinned image plus a writable
+      session layer. Reproducible: the same environment id yields the same
+      starting state.
+- [ ] **12.2** Images are allowlisted and digest-pinned. A tag is not an identity.
+- [ ] **12.3** Least privilege: rootless podman, dropped capabilities,
+      `no-new-privileges`, seccomp, read-only rootfs where possible, cgroup
+      memory/CPU/PID caps, no host namespaces, no host mounts.
+- [ ] **12.4** An environment definition from an experience never overrides a
+      privilege limit. It can only narrow.
+- [ ] **12.5** The session layer is temporary and destroyed with the session.
+
+**Accept:** the same environment id starts byte-identical; a manifest cannot
+express a host mount or added capability.
 
 **Risk:** medium.
 
 ---
 
-## Phase 18 — Front-end features
+## Phase 13 — Sessions
 
-Each slice moves logic out of `apps/web` into `packages/feature-*` and lands with
-tests. Do not batch slices.
+- [ ] **13.1** A session is temporary, expires on a server-enforced TTL, and is
+      **never published** (`ADR-0012`). No ingress route.
+- [ ] **13.2** The server stores a session descriptor only: id, tenant, expiry,
+      reconnection metadata. **No command text, no output** (`ADR-0019`).
+- [ ] **13.3** Rate-limit and quota session start.
+- [ ] **13.4** Concurrent sessions per tenant are bounded by an enforced limit.
+- [ ] **13.5** A session descriptor never crosses tenants.
 
-- [ ] **18.1** Auth: Better Auth client, session handling, protected route group,
-      real middleware guard (server-side, not client-side).
-- [ ] **18.2** Dashboard: services, recent deployments, quota usage.
-- [ ] **18.3** Service detail: releases, deployments, endpoints, config.
-- [ ] **18.4** Deployment detail: live logs over SignalR, health, actions
-      (restart, stop, rollback, redeploy).
-- [ ] **18.5** **Instant container**: launch and get a terminal.
-- [ ] **18.6** **Web terminal**: xterm.js, resize, reconnect, session indicator.
-- [ ] **18.7** Endpoints: expose a port, subdomain, TLS status.
-- [ ] **18.8** Pipelines: run list, run detail with per-step logs.
-- [ ] **18.9** Repositories: GitHub App connection, installation, repo linking.
-- [ ] **18.10** **Spec editor**: YAML/JSON editor + form, both validating against
-      `packages/spec` with inline diagnostics.
-- [ ] **18.11** Settings: domain, TLS, secrets, API keys, policy profile, quota.
-- [ ] **18.12** API docs page for the Automation API.
+**Accept:** no ingress route exists for a session; the descriptor table contains
+no command text; TTL expiry is enforced by the platform, not the client.
 
-**Accept:** no business logic remains in `apps/web`; each slice has component
-tests and its critical path has a Playwright test.
-
-**Risk:** medium-high by volume. Sequence matters — `18.5` and `18.6` depend on
-Phase 11; `18.10` depends on Phase 2.
+**Risk:** medium.
 
 ---
 
-## Phase 19 — Go CLI
+## Phase 14 — Runtime
 
-- [ ] **19.1** `apps/cli` with cobra + viper; binary `lazarus`.
-- [ ] **19.2** `lazarus.yaml` discovery and merge, with a validated model
-      generated from the Phase 2 schema.
-- [ ] **19.3** `auth login` — device flow; token in the OS keyring.
-- [ ] **19.4** `spec validate` — validates locally against the embedded schema.
-- [ ] **19.5** `up` — launch an instant container and attach a terminal.
-- [ ] **19.6** `deploy` — submit a spec, stream the deployment.
-- [ ] **19.7** `logs` — follow, filter, tail.
-- [ ] **19.8** `exec` — run one command in a running container.
-- [ ] **19.9** `ports` / `expose` — manage public endpoints.
-- [ ] **19.10** `ci watch` — follow a pipeline run.
-- [ ] **19.11** `.lazarusignore` with gitignore semantics: directory-level
-      pruning, binary detection, no unbounded reads.
-- [ ] **19.12** Source upload: gzipped tar over HTTP, chunked, size-limited. Not
-      socket frames.
-- [ ] **19.13** `config migrate` — convert a legacy config to `lazarus.yaml`.
-- [ ] **19.14** Errors wrap with `%w`; no bare `fmt.Println` outside UI helpers.
+- [ ] **14.1** Podman behind `IProcessRunner` with `ArgumentList`, **never** a
+      shell and never an interpolated command string.
+- [ ] **14.2** `CancellationToken` flows from the transport boundary to the podman
+      call. Every external call has a timeout.
+- [ ] **14.3** Output streams have backpressure and an idle timeout. No unbounded
+      channel fed by an unbounded process.
+- [ ] **14.4** Network egress is policy-controlled and deny-by-default.
+- [ ] **14.5** Platform cleans up the session layer and the container. Cleanup
+      runs even when the session is abandoned.
+- [ ] **14.6** Integration tests against real podman, **skipped** when podman is
+      unavailable — never faked.
 
-**Accept:** `lazarus up` reaches a shell from a clean machine with one command;
-a large repo uploads without exhausting memory; `spec validate` catches the same
-errors as the server.
+**Accept:** cancellation reaches podman; a runaway process cannot exhaust memory;
+an abandoned session is reaped.
+
+**Risk:** high. This is where a missing cancellation token or timeout becomes an
+outage.
+
+---
+
+## Phase 15 — Execution
+
+- [ ] **15.1** A command is a list of arguments. No shell, no PTY, no TTY
+      (`ADR-0013`).
+- [ ] **15.2** An execution streams structured events: started, output chunk,
+      exit, cancelled. Not a byte stream. No cursor, no scroll region.
+- [ ] **15.3** An output chunk carries **exactly** what the program printed.
+      Nothing is sampled, reformatted, completed, or inferred.
+- [ ] **15.4** A transcript block records command, exit code, and output.
+- [ ] **15.5** Every execution passes `PolicyEvaluator` first. Declared commands
+      get a narrower evaluation, never a bypass.
+- [ ] **15.6** Rate-limit command submission per session and per tenant.
+- [ ] **15.7** Execution lifecycle events go through the durable outbox (`8.2`).
+
+**Accept:** output is byte-faithful to the process; a denied command produces no
+process at all; no PTY type appears anywhere in the codebase.
+
+**Risk:** high. This is the untrusted-input-to-RCE path.
+
+---
+
+## Phase 16 — Documentation
+
+- [ ] **16.1** MDX is parsed and **validated at publish time**, not rendered
+      as-is at read time. A document that fails validation is never published.
+- [ ] **16.2** An explicit component allow-list. An unknown component name is a
+      validation error.
+- [ ] **16.3** Creator `import`, `export`, expressions, `{/* */}` evaluation, and
+      arbitrary JSX are **not supported**. There is no path from a document to
+      `eval` (`ADR-0017`).
+- [ ] **16.4** No remote image or script origin is reachable without a
+      publish-time allow-list check on the exact origin.
+- [ ] **16.5** Reading a document renders a validated document model. It does not
+      compile anything.
+- [ ] **16.6** Golden-file tests per fixture, including each rejected fixture's
+      named reason.
+
+**Accept:** a document with `{globalThis.fetch(...)}` fails publish with a named
+reason; a document with an unknown component fails publish; no reader path
+evaluates creator code.
+
+**Risk:** high. This is remote code execution on our origin if it regresses.
+
+---
+
+## Phase 17 — Experiences
+
+- [ ] **17.1** Publish an experience: validate against the experience schema,
+      validate its documents, record the version.
+- [ ] **17.2** A published experience is immutable. A change publishes a new
+      version, so a reader always sees the version they started.
+- [ ] **17.3** An experience names secrets; it never carries values. Values are
+      encrypted at rest, redacted in every log and error, and never returned by
+      any API.
+- [ ] **17.4** Publishing is rate-limited and audited.
+- [ ] **17.5** `lazarus.json` is accepted from agents and CI with identical
+      validation. `lazarus.yaml` is the human authoring form. Neither is a
+      second contract.
+
+**Accept:** publishing an invalid experience fails with field-level errors; a
+secret value never appears in a response, a log, or an error.
+
+**Risk:** medium.
+
+---
+
+## Phase 18 — SignalR and reconnection
+
+- [ ] **18.1** Typed hubs, tenant-scoped groups. One tenant's events never reach
+      another tenant's subscription.
+- [ ] **18.2** Reconnect resumes a session from its descriptor without a second
+      session start.
+- [ ] **18.3** The event stream is the transport for `ExecutionEvent`s. No
+      separate polling path for the same data.
+- [ ] **18.4** An idle connection is dropped and can be re-established.
+
+**Accept:** a cross-tenant subscription test fails if group scoping is removed.
+
+**Risk:** medium.
+
+---
+
+## Phase 19 — OpenAPI and client generation
+
+- [ ] **19.1** OpenAPI is generated from the controllers, not hand-written, and is
+      published.
+- [ ] **19.2** `packages/api-client` is generated from the OpenAPI document.
+- [ ] **19.3** Errors use RFC 9457 `ProblemDetails` through a single error
+      middleware.
+- [ ] **19.4** `packages/realtime` is generated from the typed hub contract.
+- [ ] **19.5** No hand-written client beside a generated one.
+
+**Accept:** drift between the API and the client fails `just check`.
 
 **Risk:** low.
 
 ---
 
-## Phase 20 — Infrastructure
+## Phase 20 — Web foundation
 
-- [ ] **20.1** `infra/compose/`: the reference one-command install — Postgres,
-      auth, control-plane, Caddy. The reference implementation of the
-      self-hostable constraint (`AGENTS.md` §1).
-- [ ] **20.2** Rootless podman socket exposed to the control-plane only.
-- [ ] **20.3** Dockerfiles: `apps/web`, `apps/control-plane`. Non-root,
-      multi-stage, minimal.
-- [ ] **20.4** Wildcard TLS via Caddy, plus the self-signed LAN fallback.
-- [ ] **20.5** `.devcontainer` reproducing the full stack.
-- [ ] **20.6** **The install is tested**: a CI job brings up the compose stack and
-      asserts a service is reachable over HTTPS. One-command install is an
-      acceptance criterion, not a claim.
-- [ ] **20.7** Volume layout, backup and restore for Postgres and uploaded
-      sources.
-- [ ] **20.8** Log rotation and disk-pressure policy.
+- [ ] **20.1** `apps/web` is composition only: routes, layouts, page
+      composition, provider wiring. No business logic, no data access, no state
+      machines, no validation, no hand-written API clients.
+- [ ] **20.2** Tailwind wired to the generated token CSS variables. No raw colour
+      utility anywhere (`ADR-0018`).
+- [ ] **20.3** `packages/ui` holds design-system primitives and no raw colour
+      values.
+- [ ] **20.4** `packages/config` holds the shared eslint, tsconfig, prettier, and
+      vitest configuration.
+- [ ] **20.5** The reducer is bound to React with a thin `useReducer` binding
+      plus storage and transport wiring that contain no product logic (`6.1`).
 
-**Accept:** on a clean host, one documented command yields a working, HTTPS-
-reachable Lazarus with no external dependency.
+**Accept:** `pnpm lint` fails on a raw colour in a component; the reducer binding
+contains no transition logic.
 
-**Risk:** medium. This is the first-run experience for every self-hoster.
+**Risk:** low.
 
 ---
 
-## Phase 21 — Hardening and operations
+## Phase 21 — Web features
 
-- [ ] **21.1** Rate limiting on every write path, especially the Automation API.
-- [ ] **21.2** Audit log: durable, queryable, tamper-evident, retention policy.
-- [ ] **21.3** Security headers, CORS policy, CSRF policy on cookie auth.
-- [ ] **21.4** Quota enforcement at the database, not just in memory.
-- [ ] **21.5** Secret scanning in CI (gitleaks or equivalent).
-- [ ] **21.6** Dependency scanning; `contract-drift` and `knip` wired into required
-      checks.
-- [ ] **21.7** Container-escape tests: assert the sandbox holds against known
-      techniques.
-- [ ] **21.8** Chaos: kill the control-plane mid-deploy and assert the state
-      machine recovers to a consistent state.
-- [ ] **21.9** Runbooks: failed deploy, stuck container, leaked subdomain, TLS
-      failure, compromised API key, restore from backup.
-- [ ] **21.10** `docs/threat-model.md` reviewed and updated.
+- [ ] **21.1** Documentation reading view with allow-listed components.
+- [ ] **21.2** Command draft with suggestions, actions, and hover explanation.
+- [ ] **21.3** Transcript rendering that consumes `TranscriptBlock`s and nothing
+      else. It never parses output.
+- [ ] **21.4** Rich output rendering escapes. ANSI is colour and control
+      filtering, never `innerHTML`.
+- [ ] **21.5** Transcript history in IndexedDB, cleared by clearing site data
+      (`ADR-0019`).
+- [ ] **21.6** Playwright coverage of the critical journey: read → compose →
+      execute → read result.
 
-**Accept:** `21.8` recovers without manual intervention; every runbook is
-followable end to end by someone who did not write it.
+**Accept:** a component never reads raw output; a blocked command renders an
+explanatory denial.
 
 **Risk:** medium.
 
 ---
 
-## Phase 22 — Release
+## Phase 22 — CLI
 
-- [ ] **22.1** Semantic versioning with a documented policy, including the
-      `apiVersion` coupling for breaking spec changes.
-- [ ] **22.2** `CHANGELOG.md` maintained per release, generated from conventional
-      commits.
-- [ ] **22.3** Release workflow: tag, build, sign, publish images, publish the
-      CLI binary.
-- [ ] **22.4** Upgrade path documented for self-hosted operators, including
-      database migrations across versions.
-- [ ] **22.5** Deprecation policy for API endpoints and spec versions.
-- [ ] **22.6** Verify `docs/architecture.md`, `README.md`, and `SECURITY.md`
-      match the shipped system.
+- [ ] **22.1** Go 1.26 `lazarus` command: validate and publish an experience, list
+      experiences, start and observe a session.
+- [ ] **22.2** The CLI calls the API. It never re-implements policy, tenancy, or
+      validation.
+- [ ] **22.3** `execFile` with an argument list. No shell, no interpolated
+      command strings.
+- [ ] **22.4** `lazarus validate` and `lazarus publish` accept both
+      `lazarus.yaml` and `lazarus.json`.
 
-**Accept:** a self-hoster can go from `v1.0.0` to `v1.1.0` following the
-documented path with no manual database work.
+**Accept:** `go vet`, `go test ./...`, and `gofmt -l` are clean; a command the
+server denies is denied identically through the CLI.
+
+**Risk:** low.
+
+---
+
+## Phase 23 — Desktop (Tauri)
+
+- [ ] **23.1** `apps/desktop` is shell wiring and window lifecycle only. It holds
+      no interaction logic.
+- [ ] **23.2** It consumes `@lazarus/interaction` exactly as `apps/web` does. The
+      same transitions, the same tests, no fork.
+- [ ] **23.3** A runtime port executes locally; the control plane executes
+      remotely. Both satisfy the same port, chosen per deployment.
+- [ ] **23.4** No PTY, no `node-pty`, no `xterm.js` in the shell either
+      (`ADR-0013`).
+
+**Accept:** a transition test suite runs against the desktop client's binding
+without modification. If this needs a change, `packages/interaction` was wrong.
+
+**Risk:** low. This phase is the acceptance test for `ADR-0014`.
+
+---
+
+## Phase 24 — Hardening and operations
+
+- [ ] **24.1** One-command install is tested. `infra/compose/` is the reference.
+- [ ] **24.2** Every external dependency is optional by default. OTel, Sentry, and
+      exporters degrade to no-ops.
+- [ ] **24.3** Rate limits and quotas on every write path, verified by test.
+- [ ] **24.4** Audit trail complete for every privilege-affecting action.
+- [ ] **24.5** `just check` green across every language, and it is the CI gate.
+- [ ] **24.6** Secrets scan on every push, working tree and full history.
+- [ ] **24.7** `SECURITY.md` and `docs/threat-model.md` current with the shipped
+      behaviour.
+
+**Accept:** a clean checkout reaches a running stack with one command; every
+export is optional; `just check` is the only gate.
+
+**Risk:** medium.
+
+---
+
+## Phase 25 — Release
+
+- [ ] **25.1** `lazarus publish`, `lazarus run`, and `lazarus validate` work end
+      to end against a real podman.
+- [ ] **25.2** A published experience is readable and executable in the web app
+      and from the CLI.
+- [ ] **25.3** Every `AGENTS.md` §13 definition-of-done item holds.
+- [ ] **25.4** `CHANGELOG.md` records the product change from the delivery
+      platform to the interactive experience, as a breaking change.
+
+**Accept:** a user follows the documentation, runs a real command, and reads real
+output. Nothing in the transcript is simulated.
 
 **Risk:** low.
 
@@ -681,30 +667,39 @@ documented path with no manual database work.
 ## Phase dependencies at a glance
 
 ```
-0  Security ──► 1  Foundation ──► 2  Spec contract ──┬─► 17  Web foundation ──► 18  Web features
-                                                    │
-                        3  .NET skeleton ──► 4  EventBus ──► 5  Auth ──► 6  Tenancy
+0  Security ──► 1  Foundation ──► 2  Contracts ──► 3  Codegen
+                                                      │
+                        4  Tokens ──► 5  Boundaries   │
+                                       │              │
+                                       └──► 6  Interaction core
+                                                      │
+0 ─► 7  .NET skeleton ──► 8  EventBus ──► 9  Auth ──► 10  Tenancy ──► 11  Policy
                                                                       │
-                                                            7  Policy ◄┘ (blocks 8, 11, 13)
-                                                                      │
-                                              8  Runtime ──► 9  Delivery ──► 10  Edge
-                                                              │
-                                              11  Exec ───────┤
-                                              12  Sources ────┤
-                                              13  Automation ─┤
-                                              14  Secrets ────┘
-                                                              │
-                                              15  SignalR ──► 16  OpenAPI ──┐
-                                                                             │
-                                                              19  CLI ────────┤
-                                                                             │
-                                                    20  Infra ──► 21  Hardening ──► 22  Release
+                                        ┌─────────────────────────────┤
+                                        ▼                             ▼
+                                  12  Environments ──► 13  Sessions ──► 14  Runtime
+                                        │                             │
+                                        └──────────► 15  Execution ◄────┘
+                                                     │
+                                        16  Docs ──► 17  Experiences ──┤
+                                                                     ▼
+                                                       18  SignalR ──► 19  OpenAPI
+                                                                     │
+                              20  Web foundation ──► 21  Web features ─┤
+                                                                     │
+                                                   22  CLI ──► 23  Desktop
+                                                                     │
+                                                       24  Hardening ──► 25  Release
 ```
 
-**Critical path:** `0 → 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 13`.
+**Critical path:** `0 → 1 → 2 → 3 → 7 → 8 → 9 → 10 → 11 → 12 → 14 → 15`.
 
-Phase 7 (Policy) blocks 8 (Runtime), 11 (Exec), and 13 (Automation). Do not let
-container code land before it.
+**Phase 11 (Policy) blocks 12, 14, and 15.** Do not let container or exec code
+land before it. This is the one ordering that is a security property rather than a
+convenience.
+
+**Phase 6 (interaction core) blocks 20, 21, and 23.** Every client consumes it, so
+building a client first means building it twice.
 
 ---
 
@@ -712,11 +707,25 @@ container code land before it.
 
 Recorded so these do not creep in. Each would need its own ADR.
 
+### Deleted product lines
+
+These were built, then removed on 2026-10-04. They are listed because a reader of
+the old history will meet them, and because reinstating any of them is a decision,
+not a task.
+
+- Spec-driven builds, image builds, and deployments
+- Subdomain-per-deployment routing and wildcard ACME for user workloads
+- A CI pipeline — checkout, build, test, scan, deploy
+- Publishing a session's ports, or any ingress route for a user container
+- Interactive programs: `vim`, `top`, an interactive `psql`, anything wanting a TTY
+
+### Never planned
+
 - Multi-region deployment or cross-region failover
 - A Kubernetes backend as an alternative to podman
-- A public template gallery or marketplace
 - A general-purpose secrets vault competing with 1Password/Vault
 - Collaborative or real-time editing of any kind
+- Server-side transcript storage (`ADR-0019` reverses any earlier attempt)
 - A visual editor of any kind — canvas, node graph, or form builder beyond the
-  schema-driven spec form
+  schema-driven publish form
 - Billing or payment processing
