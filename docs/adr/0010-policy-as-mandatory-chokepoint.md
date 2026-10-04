@@ -1,6 +1,11 @@
 # 0010 — Policy as a mandatory chokepoint
 
-**Status:** Accepted
+> **Superseded.** The chokepoint decision stands unchanged. What changed is
+> scope: policy now adjudicates *every* free-form command at runtime, not only
+> the commands an experience declared. See
+> [0015 — Policy adjudicates every command](./0015-policy-adjudicates-every-command.md).
+
+**Status:** Superseded by [0015](./0015-policy-adjudicates-every-command.md)
 **Date:** 2026-10-02
 
 ## Context
