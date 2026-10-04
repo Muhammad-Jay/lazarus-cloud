@@ -104,5 +104,4 @@ would be unable to express something real callers rely on.
 
 - [`../../AGENTS.md`](../../AGENTS.md) §4.6 — the contract is the contract
 - [`0007-spec-schema-as-sole-contract.md`](./0007-spec-schema-as-sole-contract.md)
-- [`../experience-reference.md`](../experience-reference.md)
-- [`../contracts-reference.md`](../contracts-reference.md)
+- `../experience-reference.md` and `../contracts-reference.md` (TODO 2.6)
