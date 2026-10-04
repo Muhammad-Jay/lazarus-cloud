@@ -158,29 +158,29 @@ per `ADR-0008`, and `0.3` must be complete first.
 The contracts everything else obeys. Nothing user-facing starts before this.
 Three schemas, each versioned independently (`ADR-0016`).
 
-- [ ] **2.1** `packages/spec/lazarus.schema.json` — the **experience** contract:
+- [x] **2.1** `packages/spec/lazarus.schema.json` — the **experience** contract:
       `apiVersion`, `title`, `description`, `documentation[]`, `environment`,
       `commands[]`, `tasks[]`, `secrets[]`, `policies`. One schema, two
       encodings: `lazarus.yaml` for humans, `lazarus.json` for agents and CI.
       *Deliberately absent:* any field for privileged mode, host mounts, host
       networking, `docker.sock`, added capabilities, or host namespaces. They are
       not expressible, so no request can ask for them (`ADR-0015`).
-- [ ] **2.2** `packages/contracts/src/schema/interaction.schema.json` — state
+- [x] **2.2** `packages/contracts/src/schema/interaction.schema.json` — state
       shapes, `CommandDraft`, `CommandSuggestion`, `Action`, `DocumentationRef`,
       `TranscriptBlock`, `InlineContent`, `ExecutionRequest`, `ExecutionEvent`,
       `RichOutput`.
-- [ ] **2.3** `packages/contracts/src/schema/session.schema.json` — session
+- [x] **2.3** `packages/contracts/src/schema/session.schema.json` — session
       descriptor, TTL, reconnection metadata, workspace context.
       *No command text and no output. The server does not hold history
       (`ADR-0019`).*
-- [ ] **2.4** Every schema declares `$id` with an `apiVersion`, is
+- [x] **2.4** Every schema declares `$id` with an `apiVersion`, is
       `additionalProperties: false` at each object level unless a field is
       explicitly open, and uses discriminated unions rather than optional flags.
-- [ ] **2.5** Golden-file tests: each fixture parses to an expected model, and
+- [x] **2.5** Golden-file tests: each fixture parses to an expected model, and
       each rejected fixture is rejected for a **named** reason.
-- [ ] **2.6** `docs/experience-reference.md` and `docs/contracts-reference.md`.
+- [x] **2.6** `docs/experience-reference.md` and `docs/contracts-reference.md`.
       Delete `docs/spec-reference.md`.
-- [ ] **2.7** `contract-drift` CI fails when a schema changes without its
+- [x] **2.7** `contract-drift` CI fails when a schema changes without its
       regeneration or its reference doc.
 
 **Accept:** `pnpm -F @lazarus/contracts test` green; every schema validates its

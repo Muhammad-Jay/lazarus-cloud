@@ -29,6 +29,9 @@ name: contract-drift
 on:
   push:
     branches: [main]
+    # `packages/spec/**` and `packages/contracts/**` cover all three schemas.
+    # The C# and Go paths below do not exist yet; they are listed so that landing a
+    # generator for them cannot silently escape this check.
     paths:
       - 'packages/spec/**'
       - 'packages/contracts/**'
@@ -62,17 +65,35 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Check whether the schema exists
+      - name: Check whether the schemas exist
         id: detect
         run: |
           set -euo pipefail
-          if [ -f packages/spec/lazarus.schema.json ]; then
-            echo "schema=true"  >> "$GITHUB_OUTPUT"
-            echo "  packages/spec/lazarus.schema.json: present"
+          schemas="
+          packages/spec/lazarus.schema.json
+          packages/contracts/src/schema/interaction.schema.json
+          packages/contracts/src/schema/session.schema.json
+          "
+          missing=0
+          present=0
+          for f in $schemas; do
+            if [ -f "$f" ]; then
+              present=$((present + 1))
+              echo "  $f: present"
+            else
+              missing=$((missing + 1))
+              echo "  $f: absent"
+            fi
+          done
+          echo "  $present of 3 present, $missing missing"
+          # All-or-nothing. A partially built contract set is a broken repository,
+          # not a state to verify, because a schema without its tests passes CI by
+          # simply not existing.
+          if [ "$missing" -eq 0 ]; then
+            echo "schema=true" >> "$GITHUB_OUTPUT"
           else
             echo "schema=false" >> "$GITHUB_OUTPUT"
-            echo "  packages/spec/lazarus.schema.json: absent (lands in Phase 2)"
-            echo "  Nothing to verify. Downstream jobs will report as skipped."
+            echo "::error::The contract set is incomplete. Downstream jobs are skipped."
           fi
 
   drift:
@@ -123,10 +144,10 @@ jobs:
           set -euo pipefail
           changed="$(git status --porcelain packages/spec packages/contracts apps/cli/internal/spec apps/control-plane)"
           if [ -z "$changed" ]; then
-            echo "No drift. Generated output matches the schema."
+            echo "No drift. Generated output matches the schemas."
             exit 0
           fi
-          echo "::error::Generated code is out of date with packages/spec/lazarus.schema.json"
+          echo "::error::Generated code is out of date with its schema."
           echo "Generated code is never hand-edited (AGENTS.md §4.7). Run 'just codegen' and commit the result."
           git --no-pager diff --stat
           git --no-pager diff
@@ -145,35 +166,71 @@ jobs:
           echo "Codegen is idempotent."
 
   docs:
-    name: Spec reference is current
+    name: A schema change ships with its reference-doc update
     needs: detect
     if: needs.detect.outputs.schema == 'true'
     runs-on: ubuntu-latest
     steps:
+      # Full history: the check diffs against the PR base, which a shallow clone
+      # cannot resolve.
       - uses: actions/checkout@v7
-
-      - uses: pnpm/action-setup@v6
         with:
-          version: 10.29.3
+          fetch-depth: 0
 
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
-
-      # AGENTS.md §4.6: a schema change ships with its regeneration and its
-      # documentation update in the same PR.
-      - name: docs/spec-reference.md is generated, not hand-written
+      # AGENTS.md §4.6: a schema change ships with its regeneration AND its
+      # reference-doc update. The reference is hand-written prose derived from the
+      # schema, so it cannot be verified by regeneration — only by requiring that
+      # the author updated it alongside the schema. That is a weaker guarantee than
+      # "generated", and it is the honest one.
+      #
+      # Deliberately git-only: no toolchain is needed to compare two commits, so
+      # this job cannot fail for an unrelated install problem.
+      - name: Schema change implies a reference change
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: |
           set -euo pipefail
-          just codegen
-          changed="$(git status --porcelain docs/spec-reference.md)"
-          if [ -n "$changed" ]; then
-            echo "::error::docs/spec-reference.md is stale."
-            echo "It is generated from the schema (ADR-0007). Run 'just codegen' and commit the result."
-            git --no-pager diff docs/spec-reference.md
-            exit 1
+
+          case "$BASE_SHA" in
+            ""|0000000000000000000000000000000000000000)
+              echo "No base SHA available (workflow_dispatch); nothing to compare."
+              exit 0
+              ;;
+          esac
+
+          schemas=(
+            packages/spec/lazarus.schema.json
+            packages/contracts/src/schema/interaction.schema.json
+            packages/contracts/src/schema/session.schema.json
+          )
+          references=(
+            docs/experience-reference.md
+            docs/contracts-reference.md
+          )
+
+          changed_schemas=()
+          for f in "${schemas[@]}"; do
+            if [ -n "$(git diff --name-only "$BASE_SHA" HEAD -- "$f")" ]; then
+              changed_schemas+=("$f")
+            fi
+          done
+
+          if [ "${#changed_schemas[@]}" -eq 0 ]; then
+            echo "No schema changed. No reference update required."
+            exit 0
           fi
-          echo "Spec reference is current."
+
+          echo "Schema changed in this change:"
+          printf '  %s\n' "${changed_schemas[@]}"
+
+          for f in "${references[@]}"; do
+            if [ -n "$(git diff --name-only "$BASE_SHA" HEAD -- "$f")" ]; then
+              echo "Reference updated alongside it: $f"
+              exit 0
+            fi
+          done
+
+          echo "::error::A schema changed without a reference-doc update (AGENTS.md §4.6)."
+          echo "Update docs/experience-reference.md or docs/contracts-reference.md in the same change."
+          echo "A schema change without its reference fails here; without regeneration it fails in 'No drift from the schemas'."
+          exit 1

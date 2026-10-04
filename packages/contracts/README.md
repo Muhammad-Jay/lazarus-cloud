@@ -1,37 +1,64 @@
 # packages/contracts
 
-**Generated. Never hand-edited.** (`AGENTS.md` §4.7)
+**The interaction and session contracts.** Two JSON Schemas, the TypeScript types
+generated from them, and the tests that hold them.
 
-> **Status: not yet written.** Lands in Phase 15 (`TODO.md` 15.4–15.5).
+| File | Purpose |
+|---|---|
+| `src/schema/interaction.schema.json` | Workspace context, draft, suggestions, actions, transcript, execution events. Authoritative. |
+| `src/schema/session.schema.json` | Session descriptor, limits, reconnection ticket, lifecycle events. Authoritative. |
+| `src/generated/interaction.ts` | Generated. Never edited. |
+| `src/generated/session.ts` | Generated. Never edited. |
+| `src/index.ts` | Public surface. Re-exports the generated types. |
+| `test/` | Golden files and negative fixtures for both schemas. |
 
-## What will be here
+This package is a **leaf**: it imports nothing at all
+(`AGENTS.md` §4.7). Every type is re-exported from the package root, so no
+consumer ever imports another package's `src/`.
 
-| Output | Generated from | Phase |
-|---|---|---|
-| `hub-manifest.json` | C# SignalR hub interfaces | 15.4 |
-| `hub-types.ts` | `hub-manifest.json` | 15.5 |
-| `api-client/` | OpenAPI from the .NET host | 16.2 |
+The interaction and session contracts version **independently** of each other and
+of the experience contract, so an internal refactor is never a breaking change to
+published creator content.
 
-## Why a separate directory
+## Rules
 
-These files have one property the rest of the TypeScript does not: **nobody may
-edit them.** Mixing generated and hand-written code in a package makes it
-unknowable which is which, and the wrong answer is always "just this one small
-fix".
+- **Never hand-edit anything under `src/generated/`.** An edit is lost on the next
+  run and `contract-drift` CI fails on any diff.
+- **The schemas are hand-authored and are the source of truth.** Only
+  `src/generated/` is marked `linguist-generated` in `.gitattributes`, precisely so
+  an authored contract change stays visible in review.
+- **If the generated shape is wrong, the schema is wrong** (or the generator is).
+  Fix the source, then regenerate.
+- **These schemas are a boundary, not a description.** They carry no transcript
+  payload and no published session address, because a session has neither.
 
-`.gitattributes` marks the tree `linguist-generated`, so a reviewer reads the
-source of truth — the C# hub interfaces and the OpenAPI document — and skips the
-output.
+## What the tests assert
 
-## The rule
+Beyond the golden files, both suites scan the schema for concepts the product does
+not have. `interaction-schema.test.ts` rejects `pty`, `terminalFrame`,
+`cursorPosition`, `screen`, `scrollback`, `rows`, `cols`, `shell`, and any literal
+colour — a hex value, `rgb(`, or `hsl(`. `session-schema.test.ts` rejects
+`ingress`, `subdomain`, `hostname`, `publicUrl`, `publishedPort`, `transcript`,
+`blocks`, `commands`, `commandText`, `output`, and `history`.
 
-An edit here is lost on the next `just codegen`. The `contract-drift` CI job
-regenerates and fails on any diff, so hand edits cannot survive a push anyway.
+Adding one of those concepts is a product change, not a schema typo. It needs an
+ADR before it can be added, which is the reason the assertions are tests.
 
-If the generated shape is wrong, the source is wrong. Fix the source.
+## Testing
+
+Fixture loading is duplicated from `@lazarus/spec` on purpose. `packages/spec`
+imports nothing, so it cannot share a harness with `packages/contracts` without one
+of the two acquiring a dependency the other may not have. The suite asserts that
+constraint rather than working around it.
+
+Negative fixtures assert the Ajv keyword, the instance path, and the exact
+`missingProperty`, so a loosened `required` cannot pass by changing the error
+count.
 
 ## Related
 
+- [`docs/contracts-reference.md`](../../docs/contracts-reference.md) — the reference this implements
+- [`../spec/README.md`](../spec/README.md) — the experience contract
 - [`../../tools/codegen/README.md`](../../tools/codegen/README.md) — codegen rules
-- [`../../docs/adr/0007-spec-schema-as-sole-contract.md`](../../docs/adr/0007-spec-schema-as-sole-contract.md)
-- [`../spec/README.md`](../spec/README.md) — the spec contract
+- [`ADR-0014`](../../docs/adr/0014-framework-free-interaction-core.md)
+- [`ADR-0016`](../../docs/adr/0016-three-versioned-schemas.md)

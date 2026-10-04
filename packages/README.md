@@ -8,7 +8,7 @@ with behaviour lives here.
 | Package | Holds | Phase |
 |---|---|---|
 | `spec/` | `lazarus.schema.json`, generated TS types, validator | 2 |
-| `contracts/` | **Generated only** — OpenAPI client, SignalR hub types | 16, 15 |
+| `contracts/` | Interaction + session schemas and their generated TS | 2 |
 | `api-client/` | HTTP transport, `ProblemDetails` normalisation | 16 |
 | `realtime/` | SignalR client, typed hub bindings, reconnection | 15 |
 | `auth-client/` | Better Auth client, session hooks, permission gates | 18.1 |
