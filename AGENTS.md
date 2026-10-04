@@ -13,20 +13,36 @@ Read this before your first change. Read §4 (The Hard Rules) before every chang
 
 ## 1. What Lazarus Is
 
-Lazarus is a **container automation platform**. It creates isolated containers,
-runs commands in them, exposes their ports publicly, and automates deployment
-and CI from a declarative spec file.
+Lazarus is an **interactive documentation and software execution platform**. A
+creator publishes an *experience*: documentation, a prepared software
+environment, and the command knowledge needed to use that software. A user reads
+the documentation, composes real commands, executes them in a real isolated
+environment, and inspects real results — all in one interface.
 
-Three product surfaces share one engine:
+Documentation and interaction are **one feature**, not two. Documentation is not a
+sidebar attached to a terminal, and a terminal is not the product. The value is
+in the connection between them: hovering a command shows what it does, a task
+offers the commands that accomplish it, and executing one produces real output in
+the same transcript.
 
-1. **Instant isolated container** — spin up an isolated container on demand and
-   get a terminal in the browser, streaming output live.
-2. **Spec-driven automation** — `lazarus.yaml` validated against a versioned JSON
-   Schema. Submitted from a connected GitHub repo, from a dashboard form, or as
-   JSON from an AI agent or other software. Lazarus creates the container and
-   runs it.
-3. **Public exposure and CI** — subdomains with automatic TLS, and a pipeline
-   Lazarus runs itself, driven by the spec.
+Lazarus executes real software. `ls`, `curl`, `git`, `grep` and anything else the
+environment provides actually run. Nothing is simulated, and no output is ever
+fabricated.
+
+### The four things this product is made of
+
+1. **The experience contract** — `lazarus.yaml` (or `lazarus.json`), validated
+   against a versioned JSON Schema. Documentation, environment definition,
+   command metadata, and policies. One schema, two encodings.
+2. **The interaction model** — workspace context, command draft, suggestions,
+   actions, transcript blocks. Framework-independent, and the reason a future
+   desktop terminal is possible without a rewrite.
+3. **The execution environment** — a versioned, prepared image plus a temporary
+   writable session layer. Reproducible, short-lived, and cleaned up by the
+   platform.
+4. **The transcript** — a structured record of commands, output, documentation,
+   and system events. Raw execution results and rich presentation stay
+   conceptually separate.
 
 ### Anti-goals — never build these
 
@@ -35,11 +51,14 @@ rejected regardless of how it is phrased.
 
 | Anti-goal | Note |
 |---|---|
+| A terminal emulator | No PTY. No `xterm.js`, no `node-pty`, no `xterm-addon-*`. Commands are discrete executions with structured results, not a byte stream you type into. |
 | A flow / node / graph editor | No canvas, no `reactflow`, no `@xyflow/react`. Ever. |
-| A document / collaborative-editing product | No `Document*` types. This product line was closed and its code deleted. |
-| A general-purpose Docker/Kubernetes orchestrator | We run pods and containers for *our* users' specs. We are not a scheduler. |
-| A general-purpose CI provider | The pipeline exists to build and deploy the user's own spec. |
-| A cloud IDE | A terminal is a feature, not the product. |
+| A general-purpose CI provider | There is no pipeline. A session is not a build. Stages like `checkout/build/test/scan/deploy` do not exist. |
+| Public exposure of user containers | A session is temporary and is not published. No subdomain-per-deployment, no long-lived publicly reachable service. |
+| A cloud IDE or dev workspace | Sessions are for exploration and expire. No editor, no file tree you keep, no long-lived workspace. |
+| A simulator of command output | Never fabricate, infer, or prettify output into something the program did not print. |
+| A general-purpose Docker/Kubernetes orchestrator | We run sessions for *our* users' experiences. We are not a scheduler. |
+| A collaborative or long-lived document store | Documentation is authored content, not user-editable documents. User history lives in the browser, not a server database. |
 
 ### Self-hostable is a hard constraint
 
@@ -86,20 +105,22 @@ If a change makes self-hosting harder, it needs an ADR.
 │  composition   │                  │  modular monolith    │     │  `lazarus`       │
 │  only          │                  │  SignalR + REST      │     │  tsc + JWT       │
 └────────────────┘                  └──────────┬───────────┘     └──────────────────┘
-                                               │
-              ┌────────────────────────────────┴──────────────────┐
-              │                    podman                        │
-              │  build · run · exec · logs · port allocation      │
-              └───────────────────────────────────────────────────┘
-                                               │
-                                    ┌──────────┴──────────┐
-                                    │  Edge (Caddy)       │
-                                    │  subdomain → port   │
-                                    │  wildcard ACME      │
-                                    └─────────────────────┘
+        │                                          │
+        │ consumes                          every container,
+        ▼                                 exec, and network operation
+┌────────────────────────────────┐            is behind PolicyEvaluator
+│  packages/interaction          │                   │
+│  @lazarus/interaction           │                   ▼
+│  framework-free core           │         ┌───────────────────────────┐
+│  reducer · transcript · exec   │         │  rootless podman          │
+└────────────────────────────────┘         │  exec · stream · cancel   │
+                                           └───────────────────────────┘
 ```
 
 `packages/` holds all TypeScript logic. `apps/web` is composition only.
+`packages/interaction` is the only place the interaction model is implemented —
+both the web app and the future desktop terminal consume it, which is what makes
+a desktop terminal possible without a rewrite.
 
 ---
 
@@ -108,18 +129,23 @@ If a change makes self-hosting harder, it needs an ADR.
 | Path | Holds | Never holds |
 |---|---|---|
 | `apps/web` | App Router routes, layouts, page composition, provider wiring | Business logic, data access, state machines, validation, API clients |
+| `apps/desktop` | Tauri shell wiring, window lifecycle | Interaction logic. It consumes `packages/interaction` like any other client |
 | `apps/cli` | Go command definitions, terminal UI, transport | Business rules. The CLI calls the API; it never re-implements policy |
 | `apps/control-plane/src/Lazarus.Domain` | Shared kernel primitives | Business aggregates belonging to a module |
 | `apps/control-plane/src/Lazarus.Application` | Cross-module contracts, interfaces | Implementations, EF types, transport concerns |
+| `apps/control-plane/src/Lazarus.Contracts` | **Generated** C# types for every JSON Schema | Hand edits. Ever |
 | `apps/control-plane/src/Lazarus.Infrastructure` | `DbContext`, migrations, queries, OTel, external clients | Module business rules |
 | `apps/control-plane/src/Lazarus.EventBus` | In-process domain event dispatch | Handlers belonging to a module |
 | `apps/control-plane/src/Lazarus.Api` | Host, DI wiring, middleware, health | Business logic |
 | `apps/control-plane/src/Modules/<M>` | Everything `<M>` owns: Domain, Application, Api | Another module's internals |
 | `services/auth` | Better Auth configuration and routes | Lazarus domain logic |
+| `packages/contracts` | **Generated only** — interaction, experience, session types | Hand edits. Ever |
+| `packages/interaction` | The interaction model: state, reducer, transcript normalisation, exec-event application | React, DOM, Next.js, transport, styling |
 | `packages/spec` | `lazarus.schema.json`, TS types, validator | Hand-written copies of generated types |
-| `packages/contracts` | **Generated only** | Hand edits. Ever |
+| `packages/tokens` | The single source of every colour, spacing, radius, shadow, and motion value | Anything else. It has no dependencies at all |
 | `packages/feature-*` | A feature slice: state, hooks, validation, presentation | Cross-feature imports |
-| `packages/ui` | Design-system primitives | Feature-specific components |
+| `packages/ui` | Design-system primitives | Feature-specific components, raw colour values |
+| `packages/config` | Shared eslint, tsconfig, prettier, vitest configuration | Application code |
 | `infra/` | Compose files, edge config, Dockerfiles, devcontainer | Application code |
 | `docs/adr/` | Decisions, with context and consequences | Status updates without new decisions |
 
@@ -128,20 +154,51 @@ If a change makes self-hosting harder, it needs an ADR.
 | If the change is… | It goes in |
 |---|---|
 | A new UI screen or route | `apps/web/app/**` + logic in `packages/feature-<x>` |
-| Reusable presentational component | `packages/ui` |
+| A reusable presentational component | `packages/ui` |
+| A colour, spacing, radius, or motion value | `packages/tokens`, then regenerate. Never a component |
+| A change to how the transcript, suggestions, or actions behave | `packages/interaction` |
+| A new field in the experience contract | `packages/spec/lazarus.schema.json`, then regenerate |
+| A new field in the interaction or session contract | `packages/contracts/src/schema/*.json`, then regenerate |
 | A new API endpoint | `Lazarus.Modules.<M>.Api/Controllers` |
 | Business logic for module `<M>` | `Lazarus.Modules.<M>.Application` |
 | An entity or domain rule of `<M>` | `Lazarus.Modules.<M>.Domain` |
 | A cross-module interface | `Lazarus.Application` |
 | A cross-module interaction | A domain event on the bus. Never a direct call |
 | An EF mapping or query | `Lazarus.Infrastructure` (+ the module's own configuration class) |
-| A change to the spec | `packages/spec/lazarus.schema.json`, then regenerate |
 | Container/process/network behaviour | `Lazarus.Modules.Runtime`, always behind Policy |
-| A CI pipeline step | `Lazarus.Modules.Automation` |
 
 If two answers here both fit, the one that keeps the dependency graph pointing
 inward wins. If neither fits, you are about to create a new module — write an
 ADR first.
+
+### The frontend package graph
+
+Dependencies point down and inward only. This graph is enforced by lint, not by
+review (`AGENTS.md` §4.7).
+
+```
+  apps/web          apps/desktop
+       │                 │
+       └────────┬────────┘
+                ▼
+        packages/feature-*
+                │
+                ▼
+   packages/ui   packages/api-client  packages/realtime
+        │              │                   │
+        └──────┬───────┴───────────────────┘
+               ▼
+      packages/interaction   packages/tokens
+               │                  ▲
+               ▼                  │
+        packages/contracts ───────┘   (tokens has no dependencies at all)
+```
+
+- `packages/tokens` imports **nothing**. It is a leaf.
+- `packages/contracts` imports **nothing**. It is generated types only.
+- `packages/interaction` imports only `packages/contracts`. No React, no DOM.
+- `packages/feature-*` never imports `packages/feature-*`.
+- Nothing imports another package's `src/`. Subpath exports are the only door.
 
 ---
 
@@ -198,41 +255,102 @@ wrong. Promote nothing without an ADR.
 
 ### 4.5 The Policy rule
 
-**No container, image, port, exec, volume, or network operation may execute
+**No container, image, exec, filesystem, or network operation may execute
 without a `PolicyEvaluator` decision.**
 
 - Policy is a **chokepoint**, not a check sprinkled at call sites.
 - Policy **only ever subtracts**. It can deny a capability. It can never grant
   one, and it cannot be overridden by a spec, a request payload, or an operator
   flag.
-- The spec schema has **no field** for privileged mode, host mounts, host
-  networking, `docker.sock`, added capabilities, or host namespaces. They are
-  not "disabled by default" — they are **not expressible**. A user cannot write
-  a request that asks for them.
+- **Commands are free-form.** A user may type anything, and so may an AI agent
+  acting for one. `PolicyEvaluator` therefore adjudicates *every* execution at
+  runtime, not only the commands an experience declared. A command the
+  experience declared gets a narrower evaluation, never a bypass.
+- Hiding a command in the UI is a **discovery** decision, not a security
+  decision. If it must not run, Policy says so.
+- The schema has **no field** for privileged mode, host mounts, host networking,
+  `docker.sock`, added capabilities, or host namespaces. They are not "disabled
+  by default" — they are **not expressible**. A user cannot write a request that
+  asks for them.
 - Deny by default. Unknown image, unlisted base, unbounded resource, unlisted
   registry → **deny**.
-- `Runtime` and `Exec` code that can be reached without a policy decision is a
-  build failure, caught by an architecture test. Do not look for a way around
+- `Runtime` and `Execution` code that can be reached without a policy decision is
+  a build failure, caught by an architecture test. Do not look for a way around
   the test.
 
-### 4.6 The spec is the contract
+### 4.6 The contract is the contract
 
-`packages/spec/lazarus.schema.json` is authoritative.
-
+- `packages/spec/lazarus.schema.json` describes the **experience** (published
+  by a creator). `packages/contracts/src/schema/*.json` describes the
+  **interaction** and **session** wire shapes. All are authoritative.
 - Never hand-edit a generated type in C#, TypeScript, or Go. Change the schema,
-  regenerate, commit all three.
-- A schema change in the same PR as its regeneration and its
-  `docs/spec-reference.md` update. A schema change without regeneration fails
-  `contract-drift` CI.
+  regenerate, commit every target.
+- A schema change ships in the same PR as its regeneration and its reference-doc
+  update (`docs/experience-reference.md` or `docs/contracts-reference.md`). A
+  schema change without regeneration fails `contract-drift` CI.
 - Additive schema changes (new optional fields) are minor. Removals, renames,
-  and type changes are breaking, require a new `apiVersion`, and require a
-  migration path for existing specs.
+  and type changes are breaking, require a new schema `apiVersion`, and require a
+  migration path for existing experiences.
+- `lazarus.yaml` and `lazarus.json` are **the same schema in two encodings**.
+  `lazarus.json` exists because AI agents and CI callers post JSON. It is not a
+  second contract, and there is never a `lazarus.json` whose shape the YAML
+  encoding cannot express.
 
-### 4.7 Generated code is generated
+### 4.7 Boundaries are enforced, not reviewed
 
-Anything under `packages/contracts`, `Lazarus.Modules.Specs` generated types, and
-the Go spec types is generated. Edits are lost on the next run. Fix the
-generator instead.
+- `packages/tokens`, `packages/contracts`, and `packages/interaction` are
+  **leaves**. `packages/tokens` imports nothing at all. `packages/contracts`
+  imports nothing. `packages/interaction` imports only `packages/contracts`.
+- A package that imports another package's `src/` is a **build failure**.
+  Subpath exports are the only door between packages.
+- A **phantom dependency** — importing a package that is not in your
+  `package.json` — is a build failure. Every import is declared and every
+  declared dependency is used.
+- Raw visual values outside `packages/tokens` are build failures: raw Tailwind
+  colour utilities (`bg-red-500`), arbitrary values (`bg-[#0f172a]`), colour
+  functions (`rgb()`, `hsl()`, `oklch()`), and inline `style={{}}` carrying
+  visual properties. Semantic tokens are the only public surface.
+- Layer direction (`Api → Application → Domain`), module isolation, and the
+  policy chokepoint are **NetArchTest** rules. A violation fails the build.
+
+### 4.8 The interaction model is implemented once
+
+The interaction model lives in `packages/interaction` and nowhere else.
+
+- State transitions are a **pure reducer**. No React, no DOM, no fetch, no
+  storage, no timers.
+- Reducer input and output are plain values, so the web app, the CLI, and a
+  desktop shell all drive the same transitions.
+- Execution is an **event stream** applied to the reducer. Output arrives as
+  `ExecutionEvent`s; it is never read back from a component's local state.
+- The transcript is **normalised once**, at the point an `ExecutionEvent`
+  becomes a `TranscriptBlock`. Presentation consumes blocks; it never parses raw
+  output itself.
+- Anything a second client would need to reimplement — tokenisation, suggestion
+  ranking, transcript ordering, draft-conflict resolution — is a bug, not a
+  feature.
+
+### 4.9 Creator content is untrusted
+
+Documentation is authored content compiled from a creator's machine. It is not
+trusted code.
+
+- MDX is **parsed and validated at publish time**, not rendered as-is at read
+  time. A document that fails validation is never published.
+- Only components on the **explicit allow-list** may appear. Unknown component
+  names are a validation error.
+- Creator `import`, `export`, expressions, `{/* */}` evaluation, and arbitrary
+  JSX are **not supported**. There is no path from a document to `eval`.
+- No remote image or script origin is reachable from a document without a
+  publish-time allow-list check.
+- Rich output rendering must escape. An ANSI sequence is a colour and a
+  control-character filter, never `innerHTML`.
+
+### 4.10 Generated code is generated
+
+Anything under `packages/contracts/src/generated`, `Lazarus.Contracts`, and the
+Go spec types is generated. Edits are lost on the next run. Fix the generator
+instead.
 
 ---
 
@@ -250,12 +368,15 @@ size — they drift, and only one of them gets fixed.
 | HTTP error shape | RFC 9457 `ProblemDetails`, single error middleware |
 | Realtime transport | SignalR, typed hubs, tenant-scoped groups |
 | Command/query entry | Application use-case handlers. Never a controller calling a repo directly |
+| The interaction model | `packages/interaction`. Never reimplemented in a client |
+| Visual values | `packages/tokens`. Never a literal in a component |
+| User history | Browser IndexedDB. The server stores TTL metadata only |
 | Logging | Serilog structured logging through `ILogger<T>`; `console.log` is banned in .NET |
 | Logging (TS) | One logger wrapper per package; no `console.*` in `packages/` |
 | Naming (C#) | `PascalCase` types/methods, `camelCase` locals, `_camelCase` private fields, file name = type name |
 | Naming (TS) | `kebab-case` files and folders; `PascalCase.tsx` components; `useThing.ts` hooks |
 | Naming (Go) | Go conventions: short lowercase packages, no underscores, `Err`-prefixed error vars, `%w` wrapping |
-| Naming (SQL) | `snake_case` tables prefixed by owning module (`svc_`, `dep_`, `ep_`, `spec_`, `rel_`, `ten_`, `idn_`, `src_`, `auto_`, `exec_`, `pol_`, `sec_`) |
+| Naming (SQL) | `snake_case` tables prefixed by owning module (`exp_`, `doc_`, `env_`, `ses_`, `exec_`, `pol_`, `ten_`, `idn_`, `aud_`) |
 | Config | Typed options classes, validated at startup. No string-typed lookups |
 | Time | `IClock` in .NET, one injected `Date` source in TS. Never `Date.now()` in domain logic |
 | IDs | `Guid`/UUID everywhere. Never a hardcoded ID, ever |
@@ -275,6 +396,11 @@ suffered from:
 - Interpolated shell command strings. Use `ProcessStartInfo.ArgumentList` / `execFile`
 - A module importing a sibling module
 - A controller containing business logic
+- A raw Tailwind colour utility, an arbitrary colour value, or an inline style
+  carrying a visual property, anywhere outside `packages/tokens`
+- `xterm.js`, `node-pty`, `@xterm/*` — a terminal emulator is an anti-goal
+- Fabricating, sampling, or reformatting command output that the program did not
+  print
 - Hardcoded URLs, ports, hostnames, IDs, emails, or paths
 - Secrets in source, in `.env` files committed, in logs, or in error messages
 - Two `.gitignore`s where one would do
@@ -299,9 +425,9 @@ suffered from:
 
 ## 7. Security Rules
 
-The Automation API accepts JSON from AI agents and other software that causes
-container creation. That is a direct untrusted-input-to-RCE path. Treat it as
-hostile input at all times.
+Every session is an untrusted-input-to-RCE path. A user types arbitrary commands,
+and an AI agent may type arbitrary commands for them. Treat both as hostile
+input at all times.
 
 - **Tenant scope comes from the validated token. Never from a request body, a
   query parameter, or a URL segment.** A caller may never choose their tenant.
@@ -310,9 +436,9 @@ hostile input at all times.
   even "it's an internal path".
 - **No shell.** `ProcessStartInfo` with `ArgumentList`, or `execFile`. A command
   is a list of arguments, never a string.
-- **Secrets by reference, never by value.** A spec names a secret; it never
-  carries one. Values are encrypted at rest, redacted in every log and error,
-  and never returned by any API.
+- **Secrets by reference, never by value.** An experience names a secret; it
+  never carries one. Values are encrypted at rest, redacted in every log and
+  error, and never returned by any API.
 - **Least privilege at every layer.** Rootless podman, dropped capabilities,
   `no-new-privileges`, seccomp, read-only rootfs where possible, cgroup memory/
   CPU/PID caps, no host namespaces, no host mounts.
@@ -320,7 +446,8 @@ hostile input at all times.
 - **Network egress is policy-controlled.** Not "allowed by default".
 - **Every privileged action is audited** — actor, tenant, target, decision,
   timestamp. Audit is not optional and not best-effort.
-- **Rate-limit and quota every write path**, especially the Automation API.
+- **Rate-limit and quota every write path**, especially session start and command
+  submission.
 - Verify signatures on inbound webhooks. Never trust a webhook body.
 
 Report vulnerabilities privately per `SECURITY.md`. Do not open a public issue
@@ -347,8 +474,9 @@ for a security bug, and do not include live credentials in a report.
 
 ## 9. Events and Side Effects
 
-- A domain event is a statement of fact in the past tense: `DeploymentStarted`,
-  `ImageBuilt`, `EndpointProvisioned`. Never `DoBuild` or `PleaseBuild`.
+- A domain event is a statement of fact in the past tense: `SessionCreated`,
+  `CommandSubmitted`, `ExecutionCompleted`, `ExperiencePublished`. Never
+  `DoBuild` or `PleaseBuild`.
 - Handlers are **idempotent** and **retry-safe**. Assume delivery happens twice.
 - **A handler never calls another module.** It reacts through the bus.
 - A handler never holds a database transaction open across a process spawn or a
@@ -373,7 +501,8 @@ Test the layer that owns the logic, at the cheapest level that can catch the bug
 | Policy decision | Table-driven unit test over the full decision matrix |
 | Runtime (podman) | Integration test against real podman, skipped when unavailable |
 | REST + SignalR endpoint | `WebApplicationFactory`, real auth pipeline |
-| Spec schema | Golden-file tests: every fixture must parse to an expected model |
+| Schema (experience, interaction, session) | Golden-file tests: every fixture must parse to an expected model |
+| Interaction reducer | Vitest, table-driven over every action×event pair |
 | `packages/*` TS | Vitest + Testing Library |
 | Critical user journeys | Playwright |
 | Architecture rules | NetArchTest — a violation is a failing test |
@@ -427,7 +556,8 @@ Applies to every change, and especially to an AI agent.
    error, not a build flag. Fix the cause.
 7. **Update the docs you invalidate.** Moving a boundary means updating
    `docs/modules/<name>.md`. Changing the schema means updating
-   `docs/spec-reference.md` and regenerating.
+   `docs/experience-reference.md` or `docs/contracts-reference.md`, and
+   regenerating.
 8. **Ask before expanding scope.** If a fix reveals a larger problem, report it
    and propose it — do not silently absorb it into the current change.
 9. **State what you did not do.** If you left something out, say so explicitly.
@@ -448,6 +578,8 @@ A change is done when all of these are true.
 - [ ] No new hardcoded URL, port, hostname, ID, email, path, or secret
 - [ ] Tenant scoping derives from the token, and the query actually filters by it
 - [ ] Any container/process/network path goes through `PolicyEvaluator`
+- [ ] Any interaction logic lives in `packages/interaction`, not in a client
+- [ ] Any visual value comes from a semantic token in `packages/tokens`
 - [ ] Generated code regenerated and committed if its source changed
 - [ ] Boundary moves documented in `docs/modules/<name>.md`
 - [ ] Schema changes ship with regenerated C#, TS, and Go types
