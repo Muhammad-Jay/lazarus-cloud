@@ -47,7 +47,8 @@ every language comes from one of them. This supersedes ADR 0007.**
 - **Never hand-edit a generated type** in C#, TypeScript, or Go. Change the
   schema, regenerate, commit every target in the same change.
 - A schema change ships with its regeneration **and** its reference-doc update
-  (`docs/experience-reference.md` or `docs/contracts-reference.md`). A schema
+  ([`docs/experience-reference.md`](../experience-reference.md) or
+  [`docs/contracts-reference.md`](../contracts-reference.md)). A schema
   change without regeneration fails `contract-drift` CI.
 - **Additive changes** (new optional fields) are minor. **Removals, renames, and
   type changes** are breaking: they require a new schema `apiVersion` and a
@@ -104,4 +105,5 @@ would be unable to express something real callers rely on.
 
 - [`../../AGENTS.md`](../../AGENTS.md) §4.6 — the contract is the contract
 - [`0007-spec-schema-as-sole-contract.md`](./0007-spec-schema-as-sole-contract.md)
-- `../experience-reference.md` and `../contracts-reference.md` (TODO 2.6)
+- [`../experience-reference.md`](../experience-reference.md)
+- [`../contracts-reference.md`](../contracts-reference.md)

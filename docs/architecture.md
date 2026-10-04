@@ -360,8 +360,8 @@ Anti-goals, restated because they get reintroduced by accident
 | Document | Contents |
 |---|---|
 | [`docs/threat-model.md`](./threat-model.md) | Trust boundaries, adversaries, known limitations |
-| `docs/experience-reference.md` | The experience contract — TODO 2.6 |
-| `docs/contracts-reference.md` | Interaction and session contracts — TODO 2.6 |
+| [`docs/experience-reference.md`](./experience-reference.md) | The experience contract a creator publishes |
+| [`docs/contracts-reference.md`](./contracts-reference.md) | The interaction and session contracts we own |
 | [`docs/modules/`](./modules/) | Per-module ownership boundaries |
 | [`docs/runbooks/`](./runbooks/) | Operational procedures |
 | [`docs/adr/`](./adr/) | Decisions, with context and consequences |
