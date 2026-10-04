@@ -1,0 +1,258 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lazarus.dev/schemas/session/v1",
+  "title": "Lazarus session",
+  "description": "A session descriptor and its lifecycle. A session is temporary and is never published: it has no ingress route, no subdomain, and no long-lived publicly reachable address (ADR-0012).\n\nThis contract deliberately carries no command text and no output. User history lives in the client, and the server stores only what it needs to route a reconnection and reap an expiry (ADR-0019). A transcript is the most sensitive data Lazarus holds, and nothing in the product queries it server-side.",
+  "type": "object",
+  "required": [
+    "descriptor",
+    "limits"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "descriptor": {
+      "$ref": "#/$defs/sessionDescriptor"
+    },
+    "limits": {
+      "$ref": "#/$defs/sessionLimits"
+    },
+    "ticket": {
+      "description": "Present on start and on reissue. Absent once a ticket has been redeemed, so a reconnected client cannot retain a usable credential.",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/reconnectionTicket"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "hubUrl": {
+      "description": "Where to subscribe for events. Relative to the operator-configured base address, never an absolute host, so no code path can hardcode an endpoint.",
+      "type": "string",
+      "maxLength": 256
+    }
+  },
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "isoTimestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sessionState": {
+      "description": "A discriminated union rather than a state string plus nullable fields, so an exhaustive switch is the only way to read it and a missed case is a compile error.",
+      "type": "string",
+      "enum": [
+        "starting",
+        "ready",
+        "ended",
+        "expired",
+        "failed"
+      ]
+    },
+    "sessionDescriptor": {
+      "description": "Everything the server stores about a session. If a field is not here, the server does not have it.",
+      "type": "object",
+      "required": [
+        "sessionId",
+        "tenantId",
+        "experienceId",
+        "experienceVersion",
+        "state",
+        "createdAt",
+        "expiresAt"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "sessionId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "tenantId": {
+          "description": "Derived from the validated token at session start. Never from a request body, query parameter, or URL segment, so a caller can never choose their tenant.",
+          "$ref": "#/$defs/uuid"
+        },
+        "experienceId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "experienceVersion": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "state": {
+          "$ref": "#/$defs/sessionState"
+        },
+        "createdAt": {
+          "$ref": "#/$defs/isoTimestamp"
+        },
+        "expiresAt": {
+          "description": "Server-enforced expiry. The client does not decide when a session ends, and expiry is reaped by the platform rather than by whoever is still connected.",
+          "$ref": "#/$defs/isoTimestamp"
+        },
+        "endedAt": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/isoTimestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "environmentImage": {
+          "description": "The digest-pinned image this session resolved to. Recorded for audit and reproducibility; a tag is not an identity.",
+          "type": "string",
+          "pattern": "^[^\\s@]+@sha256:[0-9a-f]{64}$"
+        },
+        "failureCode": {
+          "description": "Present when state is 'failed'. A stable code, never an internal exception message.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "maxLength": 64
+        }
+      }
+    },
+    "sessionLimits": {
+      "description": "The bounds a session was admitted under. Returned so a client can explain a refusal before it happens rather than after.",
+      "type": "object",
+      "required": [
+        "maxDurationSeconds",
+        "maxExecutions",
+        "maxConcurrent"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "maxDurationSeconds": {
+          "type": "integer",
+          "minimum": 30,
+          "maximum": 86400
+        },
+        "maxExecutions": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10000
+        },
+        "maxConcurrent": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        },
+        "remainingExecutions": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
+    },
+    "reconnectionTicket": {
+      "description": "A short-lived, single-use ticket that lets a client rejoin its own session. Deliberately not the session id: a guessable identifier that reattached on its own would be an authentication bypass.",
+      "type": "object",
+      "required": [
+        "ticket",
+        "sessionId",
+        "expiresAt"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "ticket": {
+          "type": "string",
+          "minLength": 32,
+          "maxLength": 256
+        },
+        "sessionId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "expiresAt": {
+          "$ref": "#/$defs/isoTimestamp"
+        }
+      }
+    },
+    "startSessionRequest": {
+      "type": "object",
+      "required": [
+        "experienceId"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "experienceId": {
+          "$ref": "#/$defs/uuid"
+        },
+        "experienceVersion": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        }
+      }
+    },
+    "sessionEvent": {
+      "description": "A lifecycle transition delivered to subscribers. Execution output is a separate stream: this one carries state changes and lets a client stop listening.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "sessionId",
+            "state",
+            "at"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "sessionStateChanged"
+            },
+            "sessionId": {
+              "$ref": "#/$defs/uuid"
+            },
+            "state": {
+              "$ref": "#/$defs/sessionState"
+            },
+            "failureCode": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 64
+            },
+            "at": {
+              "$ref": "#/$defs/isoTimestamp"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "kind",
+            "sessionId",
+            "at"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "const": "sessionClosing"
+            },
+            "sessionId": {
+              "$ref": "#/$defs/uuid"
+            },
+            "reason": {
+              "type": "string",
+              "maxLength": 300
+            },
+            "at": {
+              "$ref": "#/$defs/isoTimestamp"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "apiVersion": "lazarus.dev/v1",
+  "title": "Finding things on a filesystem",
+  "description": "Use find, grep, and ls to locate a file you know exists.",
+  "tags": ["filesystem", "shell"],
+  "environment": {
+    "image": "docker.io/library/debian@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "workdir": "workspace",
+    "env": { "LANG": "C.UTF-8", "TERM": "dumb" },
+    "resources": { "memoryMb": 512, "cpus": 1, "pids": 128, "timeoutSeconds": 600 },
+    "network": { "egress": ["deb.debian.org"], "dns": [] }
+  },
+  "documentation": [
+    {
+      "id": "find-a-file",
+      "title": "Find a file by name",
+      "summary": "Use find with -name to locate a file.",
+      "mdx": "Start from the working directory and narrow with `find`."
+    }
+  ],
+  "commands": [
+    {
+      "id": "list-files",
+      "executable": "ls",
+      "args": ["-la"],
+      "summary": "List every file, including hidden ones.",
+      "description": "ls with -la shows permissions, owner, and size.",
+      "documentId": "find-a-file",
+      "expectsOutput": true
+    },
+    {
+      "id": "find-by-name",
+      "executable": "find",
+      "args": [".", "-name", "*.txt"],
+      "summary": "Find files matching a name pattern.",
+      "documentId": "find-a-file"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "locate-the-readme",
+      "title": "Locate the README",
+      "summary": "Find the README without knowing its directory.",
+      "steps": ["list-files", "find-by-name"],
+      "documentId": "find-a-file"
+    }
+  ],
+  "secrets": [
+    { "name": "registry-token", "envVar": "REGISTRY_TOKEN", "required": false }
+  ],
+  "policies": [
+    {
+      "id": "no-package-install",
+      "effect": "deny",
+      "reason": "This experience only reads the filesystem.",
+      "match": { "kind": "executable", "value": "apt" }
+    }
+  ]
+}

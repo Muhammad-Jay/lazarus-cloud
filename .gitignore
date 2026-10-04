@@ -83,6 +83,7 @@ vendor/
 /site/
 /docs/api/*.html
 /docs/api/*.md
+LAZARUS_MODEL.md
 
 # ── Tooling caches ─────────────────────────────────────────────────────────
 .cache/

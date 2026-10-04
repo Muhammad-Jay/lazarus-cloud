@@ -17,5 +17,9 @@ packages:
 # the pin is deliberately package-specific — in which case add a comment saying why.
 catalog:
   '@types/node': ^24.0.0
+  ajv: ^8.17.1
+  ajv-formats: ^3.0.1
+  json-schema-to-typescript: ^16.0.0
   typescript: ^5.9.0
+  vitest: ^3.2.4
   zod: ^4.0.0

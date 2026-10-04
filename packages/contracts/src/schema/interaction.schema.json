@@ -1,0 +1,495 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lazarus.dev/schemas/interaction/v1",
+  "title": "Lazarus interaction",
+  "description": "The interaction model: workspace context, command draft, suggestions, actions, transcript blocks, and the execution event stream. This contract changes with the product's behaviour, and it versions independently of the experience contract so an internal refactor is never a breaking change to published creator content (ADR-0016).\n\nWe own this contract. It is not creator-authored.",
+  "type": "object",
+  "required": [
+    "context",
+    "suggestions",
+    "actions",
+    "blocks"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "context": { "$ref": "#/$defs/workspaceContext" },
+    "draft": {
+      "description": "What the reader has composed, or null when the draft is empty. The same value shape the reducer reads and returns, so a client and the reducer cannot disagree about it.",
+      "oneOf": [{ "$ref": "#/$defs/commandDraft" }, { "type": "null" }]
+    },
+    "suggestions": { "$ref": "#/$defs/suggestionSet" },
+    "actions": { "$ref": "#/$defs/actionSet" },
+    "blocks": { "$ref": "#/$defs/transcript" },
+    "draftConflict": {
+      "description": "Present only when a context change would replace a draft the reader has edited. The interaction core decides that this is a conflict; the client asks.",
+      "oneOf": [{ "$ref": "#/$defs/draftConflict" }, { "type": "null" }]
+    }
+  },
+  "$defs": {
+    "suggestionSet": {
+      "description": "Ranked suggestions for the current context. Ranking is computed once, in packages/interaction, so no client re-implements it (ADR-0014).",
+      "type": "object",
+      "required": ["items"],
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/commandSuggestion" },
+          "maxItems": 200
+        },
+        "rankedAt": { "$ref": "#/$defs/isoTimestamp" }
+      }
+    },
+    "actionSet": {
+      "type": "object",
+      "required": ["items"],
+      "additionalProperties": false,
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/action" },
+          "maxItems": 100
+        }
+      }
+    },
+    "transcript": {
+      "description": "The ordered record of the session. Blocks are appended in event order and never reordered by presentation (ADR-0014).",
+      "type": "object",
+      "required": ["blocks"],
+      "additionalProperties": false,
+      "properties": {
+        "blocks": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/transcriptBlock" },
+          "maxItems": 10000
+        }
+      }
+    },
+    "isoTimestamp": {
+      "description": "An RFC 3339 instant. Never a bare number, so two runtimes cannot disagree about the unit.",
+      "type": "string",
+      "format": "date-time",
+      "examples": ["2026-10-04T12:00:00.000Z"]
+    },
+    "uuid": {
+      "type": "string",
+      "format": "uuid",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "colorRole": {
+      "description": "A semantic colour role, never a literal colour value. The presentation layer maps a role to a token from packages/tokens (ADR-0018), so a raw colour cannot reach a component and contrast stays checkable in one place.",
+      "type": "string",
+      "enum": [
+        "default",
+        "muted",
+        "accent",
+        "success",
+        "warning",
+        "danger",
+        "info",
+        "stdout",
+        "stderr"
+      ]
+    },
+    "workspaceContext": {
+      "description": "Where the reader currently is: which experience, which document, and where in the reading order. A change to this can conflict with an edited draft (see DraftConflict).",
+      "type": "object",
+      "required": ["experienceId", "experienceVersion"],
+      "additionalProperties": false,
+      "properties": {
+        "experienceId": { "$ref": "#/$defs/uuid" },
+        "experienceVersion": { "type": "integer", "minimum": 1 },
+        "documentId": { "type": ["string", "null"], "maxLength": 64 },
+        "sessionId": { "oneOf": [{ "$ref": "#/$defs/uuid" }, { "type": "null" }] },
+        "workingDirectory": { "type": ["string", "null"], "maxLength": 512 },
+        "taskId": { "type": ["string", "null"], "maxLength": 64 }
+      }
+    },
+    "commandArgument": {
+      "description": "One argument of a command. A command is a list of arguments, never a shell string (ADR-0013).",
+      "type": "object",
+      "required": ["value"],
+      "additionalProperties": false,
+      "properties": {
+        "value": { "type": "string", "maxLength": 4096 },
+        "quoted": {
+          "description": "Whether the argument was entered as a quoted literal, so presentation can show it faithfully without re-parsing.",
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "commandDraft": {
+      "description": "What the reader has composed but not yet run. Plain data: the reducer takes and returns this, so any client can drive the same transitions (ADR-0014).",
+      "type": "object",
+      "required": ["executable", "arguments"],
+      "additionalProperties": false,
+      "properties": {
+        "executable": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "arguments": { "type": "array", "items": { "$ref": "#/$defs/commandArgument" }, "maxItems": 128 },
+        "sourceCommandId": {
+          "description": "The documented command this draft started from, if any. Discovery provenance only; it is never treated as authorisation (ADR-0015).",
+          "type": ["string", "null"],
+          "maxLength": 64
+        },
+        "modified": {
+          "description": "Whether the reader has edited the draft. A context change replaces an unmodified draft and conflicts on a modified one, so this flag is the whole of that decision.",
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
+    "commandSuggestion": {
+      "description": "A candidate to put in the draft. Ranking is computed once, in packages/interaction, so no client re-implements it (ADR-0014).",
+      "type": "object",
+      "required": ["kind", "label"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "description": "A discriminated union, so a client never has to guess which fields are meaningful.",
+          "type": "string",
+          "enum": ["documentedCommand", "executableName", "taskStep", "historyEntry"]
+        },
+        "label": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "detail": { "type": "string", "maxLength": 500 },
+        "draft": { "$ref": "#/$defs/commandDraft" },
+        "score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "documentId": { "type": ["string", "null"], "maxLength": 64 }
+      }
+    },
+    "action": {
+      "description": "Something the reader can do that is not a command: open a document, follow a task, reuse a past command, clear the transcript. Actions are data so the same set renders identically in every client.",
+      "type": "object",
+      "required": ["id", "kind", "label"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/uuid" },
+        "kind": {
+          "type": "string",
+          "enum": ["openDocument", "startTask", "reuseCommand", "clearTranscript", "cancelExecution", "endSession"]
+        },
+        "label": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "documentId": { "type": ["string", "null"], "maxLength": 64 },
+        "taskId": { "type": ["string", "null"], "maxLength": 64 },
+        "executionId": { "oneOf": [{ "$ref": "#/$defs/uuid" }, { "type": "null" }] },
+        "disabledReason": {
+          "description": "Why the action cannot be taken right now. A disabled action always carries a reason; a silently inert control is a bug.",
+          "type": ["string", "null"],
+          "maxLength": 300
+        }
+      }
+    },
+    "documentationRef": {
+      "description": "A pointer to a published document.",
+      "type": "object",
+      "required": ["documentId"],
+      "additionalProperties": false,
+      "properties": {
+        "documentId": { "type": "string", "maxLength": 64 },
+        "title": { "type": "string", "maxLength": 200 },
+        "anchor": { "type": "string", "maxLength": 128 }
+      }
+    },
+    "textStyle": {
+      "description": "Presentation of one span of output. Carries semantic roles, never literal colours (ADR-0018).",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "color": { "$ref": "#/$defs/colorRole" },
+        "bold": { "type": "boolean" },
+        "italic": { "type": "boolean" },
+        "underline": { "type": "boolean" },
+        "dim": { "type": "boolean" }
+      }
+    },
+    "richOutput": {
+      "description": "Output after ANSI interpretation. This is a FILTER, not an emulator: cursor movement, erase, and other control semantics are stripped rather than emulated, because a transcript is a record rather than a screen (ADR-0013).",
+      "type": "object",
+      "required": ["spans"],
+      "additionalProperties": false,
+      "properties": {
+        "spans": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["text"],
+            "additionalProperties": false,
+            "properties": {
+              "text": { "type": "string" },
+              "style": { "$ref": "#/$defs/textStyle" },
+              "stream": {
+                "description": "Which stream produced the text. Preserved because interleaving is part of what the program actually printed.",
+                "type": "string",
+                "enum": ["stdout", "stderr"]
+              }
+            }
+          },
+          "maxItems": 4096
+        },
+        "truncated": {
+          "description": "Whether output was cut at a platform limit. Truncation is always disclosed; output is never silently shortened.",
+          "type": "boolean",
+          "default": false
+        },
+        "byteCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "executionRequest": {
+      "description": "A request to run a command. Every execution passes a PolicyEvaluator decision first, whether or not the command was declared by the experience (ADR-0015).",
+      "type": "object",
+      "required": ["sessionId", "executable", "arguments"],
+      "additionalProperties": false,
+      "properties": {
+        "sessionId": { "$ref": "#/$defs/uuid" },
+        "executable": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "arguments": { "type": "array", "items": { "$ref": "#/$defs/commandArgument" }, "maxItems": 128 },
+        "sourceCommandId": { "type": ["string", "null"], "maxLength": 64 },
+        "clientTimestamp": { "$ref": "#/$defs/isoTimestamp" }
+      }
+    },
+    "policyDecision": {
+      "description": "The outcome of one PolicyEvaluator evaluation. A denial is as auditable as an allow, and carries a reason a reader can act on: free-form commands mean the deny path is common, not exceptional.",
+      "type": "object",
+      "required": ["outcome"],
+      "additionalProperties": false,
+      "properties": {
+        "outcome": { "type": "string", "enum": ["allowed", "denied"] },
+        "code": {
+          "description": "Stable, machine-readable denial code. Presentation maps it to prose; the code never embeds user-facing wording.",
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "maxLength": 64
+        },
+        "message": { "type": "string", "maxLength": 500 },
+        "evaluatedAt": { "$ref": "#/$defs/isoTimestamp" }
+      }
+    },
+    "executionEvent": {
+      "description": "One event in an execution's stream. Structured events rather than a byte stream: a transcript has to be orderable, searchable, and testable, and none of those is true of bytes (ADR-0013).",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind", "executionId", "command", "at"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "executionStarted" },
+            "executionId": { "$ref": "#/$defs/uuid" },
+            "command": { "$ref": "#/$defs/commandDraft" },
+            "decision": { "$ref": "#/$defs/policyDecision" },
+            "at": { "$ref": "#/$defs/isoTimestamp" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["kind", "executionId", "sequence", "output"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "executionOutput" },
+            "executionId": { "$ref": "#/$defs/uuid" },
+            "sequence": { "type": "integer", "minimum": 0 },
+            "output": { "$ref": "#/$defs/richOutput" },
+            "at": { "$ref": "#/$defs/isoTimestamp" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["kind", "executionId", "exitCode", "at"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "executionCompleted" },
+            "executionId": { "$ref": "#/$defs/uuid" },
+            "exitCode": { "type": "integer", "minimum": -1, "maximum": 255 },
+            "durationMs": { "type": "integer", "minimum": 0 },
+            "at": { "$ref": "#/$defs/isoTimestamp" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["kind", "executionId", "at"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "executionCancelled" },
+            "executionId": { "$ref": "#/$defs/uuid" },
+            "reason": { "type": "string", "maxLength": 300 },
+            "at": { "$ref": "#/$defs/isoTimestamp" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["kind", "executionId", "decision", "at"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "executionDenied" },
+            "executionId": { "$ref": "#/$defs/uuid" },
+            "decision": { "$ref": "#/$defs/policyDecision" },
+            "at": { "$ref": "#/$defs/isoTimestamp" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["kind", "at"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "executionFailed" },
+            "executionId": { "oneOf": [{ "$ref": "#/$defs/uuid" }, { "type": "null" }] },
+            "code": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$", "maxLength": 64 },
+            "message": { "type": "string", "maxLength": 500 },
+            "at": { "$ref": "#/$defs/isoTimestamp" }
+          }
+        }
+      ]
+    },
+    "transcriptBlock": {
+      "description": "One entry in the transcript, produced exactly once, where an ExecutionEvent becomes a block. Presentation consumes blocks and never parses raw output or reorders them (ADR-0014).",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind", "id", "at"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "command" },
+            "id": { "$ref": "#/$defs/uuid" },
+            "executionId": { "oneOf": [{ "$ref": "#/$defs/uuid" }, { "type": "null" }] },
+            "command": { "$ref": "#/$defs/commandDraft" },
+            "at": { "$ref": "#/$defs/isoTimestamp" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["kind", "id", "executionId", "output", "at"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "output" },
+            "id": { "$ref": "#/$defs/uuid" },
+            "executionId": { "$ref": "#/$defs/uuid" },
+            "sequence": { "type": "integer", "minimum": 0 },
+            "output": { "$ref": "#/$defs/richOutput" },
+            "at": { "$ref": "#/$defs/isoTimestamp" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["kind", "id", "executionId", "exitCode", "at"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "result" },
+            "id": { "$ref": "#/$defs/uuid" },
+            "executionId": { "$ref": "#/$defs/uuid" },
+            "exitCode": { "type": "integer", "minimum": -1, "maximum": 255 },
+            "durationMs": { "type": "integer", "minimum": 0 },
+            "at": { "$ref": "#/$defs/isoTimestamp" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["kind", "id", "level", "message", "at"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "notice" },
+            "id": { "$ref": "#/$defs/uuid" },
+            "level": { "type": "string", "enum": ["info", "warning", "error"] },
+            "message": { "type": "string", "maxLength": 1000 },
+            "at": { "$ref": "#/$defs/isoTimestamp" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["kind", "id", "executionId", "decision", "at"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "policyDenied" },
+            "id": { "$ref": "#/$defs/uuid" },
+            "executionId": { "$ref": "#/$defs/uuid" },
+            "decision": { "$ref": "#/$defs/policyDecision" },
+            "at": { "$ref": "#/$defs/isoTimestamp" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["kind", "id", "ref", "at"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "documentation" },
+            "id": { "$ref": "#/$defs/uuid" },
+            "ref": { "$ref": "#/$defs/documentationRef" },
+            "at": { "$ref": "#/$defs/isoTimestamp" }
+          }
+        }
+      ]
+    },
+    "inlineContent": {
+      "description": "Content rendered inline within a transcript block or a document fragment. A discriminated union, so a renderer has a total switch rather than a guess (AGENTS.md §6).",
+      "oneOf": [
+        { "$ref": "#/$defs/inlineText" },
+        { "$ref": "#/$defs/inlineEmphasis" },
+        { "$ref": "#/$defs/inlineCode" },
+        { "$ref": "#/$defs/inlineLink" },
+        { "$ref": "#/$defs/inlineCommand" }
+      ]
+    },
+    "inlineText": {
+      "type": "object",
+      "required": ["kind", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "text" },
+        "value": { "type": "string", "maxLength": 10000 }
+      }
+    },
+    "inlineEmphasis": {
+      "type": "object",
+      "required": ["kind", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "emphasis" },
+        "value": { "type": "string", "maxLength": 10000 },
+        "tone": { "type": "string", "enum": ["neutral", "strong"] }
+      }
+    },
+    "inlineCode": {
+      "type": "object",
+      "required": ["kind", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "code" },
+        "value": { "type": "string", "maxLength": 10000 },
+        "language": { "type": ["string", "null"], "maxLength": 32 }
+      }
+    },
+    "inlineLink": {
+      "description": "A link inside a document. Destination origin was checked at publish time, so a reader is never fetched a remote resource the publisher did not declare (ADR-0017).",
+      "type": "object",
+      "required": ["kind", "href", "label"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "link" },
+        "href": { "type": "string", "maxLength": 2048 },
+        "label": { "type": "string", "maxLength": 500 },
+        "external": { "type": "boolean", "default": false }
+      }
+    },
+    "inlineCommand": {
+      "description": "A reference to a documented command, rendered with its summary. Documentation and interaction are one feature, and this is the join between them.",
+      "type": "object",
+      "required": ["kind", "commandId"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "commandRef" },
+        "commandId": { "type": "string", "maxLength": 64 },
+        "label": { "type": "string", "maxLength": 256 },
+        "summary": { "type": "string", "maxLength": 500 }
+      }
+    },
+    "draftConflict": {
+      "description": "Raised when a context change would replace a draft the reader has edited. The interaction core decides that this is a conflict; the client asks (ADR-0014).",
+      "type": "object",
+      "required": ["draft", "context"],
+      "additionalProperties": false,
+      "properties": {
+        "draft": { "$ref": "#/$defs/commandDraft" },
+        "context": { "$ref": "#/$defs/workspaceContext" },
+        "raisedAt": { "$ref": "#/$defs/isoTimestamp" }
+      }
+    }
+  }
+}

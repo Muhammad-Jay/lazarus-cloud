@@ -1,0 +1,28 @@
+{
+  "name": "@lazarus/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Generated interaction and session types. Never hand-edited.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./interaction": "./src/generated/interaction.ts",
+    "./session": "./src/generated/session.ts",
+    "./schema/*": "./src/schema/*"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "ajv": "catalog:",
+    "ajv-formats": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}
