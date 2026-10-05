@@ -112,43 +112,9 @@ export interface DocumentationRef {
   relatedCommandIds?: string[];
 }
 
-export interface DocumentationRef1 {
-  documentId: string;
-  title?: string;
-  anchor?: string;
-  /**
-   * One-line explanation shown in a popover without opening the document (§4.5). Bounded because a popover must not become a second copy of the document.
-   */
-  summary?: string;
-  /**
-   * Commands this document describes, for popovers and search results (§4.5, §6.3). A DISPLAY HINT ONLY: the authoritative command-to-document mapping lives in the experience contract, and the reverse index is derived from it rather than authored twice. Never a permission source.
-   *
-   * @maxItems 50
-   */
-  relatedCommandIds?: string[];
-}
-/**
- * A candidate to put in the draft. Ranking is computed once, in packages/interaction, so no client re-implements it (ADR-0014).
- */
+export type DocumentationRef1 = DocumentationRef;
 
-export interface DocumentationRef2 {
-  documentId: string;
-  title?: string;
-  anchor?: string;
-  /**
-   * One-line explanation shown in a popover without opening the document (§4.5). Bounded because a popover must not become a second copy of the document.
-   */
-  summary?: string;
-  /**
-   * Commands this document describes, for popovers and search results (§4.5, §6.3). A DISPLAY HINT ONLY: the authoritative command-to-document mapping lives in the experience contract, and the reverse index is derived from it rather than authored twice. Never a permission source.
-   *
-   * @maxItems 50
-   */
-  relatedCommandIds?: string[];
-}
-/**
- * A search response. Selecting a result may populate a draft, change context, or reveal options, but it must never imply an operation happened (§4.4) — hence no execution state anywhere in this shape.
- */
+export type DocumentationRef2 = DocumentationRef;
 
 export interface DocumentationSearch {
   query?: string;
