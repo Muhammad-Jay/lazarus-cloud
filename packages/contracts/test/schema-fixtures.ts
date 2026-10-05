@@ -118,6 +118,106 @@ const readInvalidReasons = (
   return new Map(entries);
 };
 
+export interface DefSuiteOptions extends SchemaSuiteOptions {
+  /**
+   * A `$def` name. Some definitions are deliberately unreachable from the schema
+   * root — `localSession` and `executionRequest` are standalone documents rather
+   * than state fields — so nothing would ever validate them. This suite compiles a
+   * wrapper that references the definition directly.
+   */
+  readonly defName: string;
+}
+
+/**
+ * Validates fixtures against one `$def` instead of the schema root.
+ *
+ * This exists so a definition cannot be added, broken, and left untested merely
+ * because nothing at the root references it. `localSession` is the case that
+ * matters: it is the browser-side record, it is not part of interaction state, and
+ * without this suite every field in it would be unchecked.
+ */
+export const registerDefSuite = ({
+  name,
+  schemaFile,
+  fixtureDir,
+  defName,
+}: DefSuiteOptions): void => {
+  const schema = readJson(join(packageRoot, schemaFile)) as SchemaShape;
+  const defs = schema.$defs;
+
+  if (defs === undefined || !(defName in defs)) {
+    throw new Error(`${schemaFile} has no $defs.${defName}`);
+  }
+
+  const ajv = new Ajv2020({ allErrors: true, strict: true });
+  addFormats(ajv);
+
+  const validate = ajv.compile({
+    $schema: 'https://json-schema.org/draft/2020-12/schema',
+    $id: `lazarus-def-${defName}-fixture`,
+    $ref: `#/$defs/${defName}`,
+    $defs: defs,
+  });
+
+  const base = `${fixtureDir}/def-${defName}`;
+  const validFixtures = fixturesIn(`${base}/valid`);
+  const invalidFixtures = fixturesIn(`${base}/invalid`);
+  const reasons = readInvalidReasons(fixtureDir, `${base}/invalid-reasons.txt`);
+
+  const errorsFor = (path: string): readonly ErrorObject[] => {
+    validate(readJson(path));
+
+    return validate.errors ?? [];
+  };
+
+  describe(`${name} $def ${defName}`, () => {
+    it('has at least one valid fixture', () => {
+      expect(validFixtures.length).toBeGreaterThan(0);
+    });
+
+    it('has at least one invalid fixture', () => {
+      expect(invalidFixtures.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe(`${name} $def ${defName} accepted fixtures`, () => {
+    it.each(validFixtures)('accepts %s', (path: string) => {
+      validate(readJson(path));
+
+      expect(validate.errors ?? []).toEqual([]);
+    });
+  });
+
+  describe(`${name} $def ${defName} rejected fixtures`, () => {
+    it('has a named reason for every invalid fixture', () => {
+      expect(invalidFixtures.map(fixtureName).sort()).toEqual([...reasons.keys()].sort());
+    });
+
+    it.each(invalidFixtures)('rejects %s for its named keyword and path', (path: string) => {
+      const fixture = fixtureName(path);
+      const expected = reasons.get(fixture);
+
+      if (expected === undefined) {
+        throw new Error(`${fixture} has no named reason in ${base}/invalid-reasons.txt`);
+      }
+
+      const errors = errorsFor(path);
+
+      expect(
+        errors.some(
+          (error: ErrorObject) =>
+            error.keyword === expected.keyword &&
+            normalisePath(error.instancePath) === normalisePath(expected.instancePath) &&
+            matchesMissingProperty(error, expected.missingProperty),
+        ),
+        `expected ${fixture} to fail with ${expected.keyword} at ${expected.instancePath} (${expected.reason}), got ${errors
+          .map((error: ErrorObject) => `${error.keyword} at ${normalisePath(error.instancePath)}`)
+          .join(', ')}`,
+      ).toBe(true);
+    });
+  });
+};
+
 export const registerSchemaSuite = ({
   name,
   schemaFile,

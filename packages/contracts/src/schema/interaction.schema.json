@@ -7,6 +7,7 @@
   "required": [
     "context",
     "suggestions",
+    "search",
     "actions",
     "blocks"
   ],
@@ -18,6 +19,10 @@
       "oneOf": [{ "$ref": "#/$defs/commandDraft" }, { "type": "null" }]
     },
     "suggestions": { "$ref": "#/$defs/suggestionSet" },
+    "search": {
+      "description": "Documentation search results for the current query. Search is part of the workspace, not a separate destination (§4.4), and a result may carry commands, pills and actions so it connects an intention to something executable.",
+      "$ref": "#/$defs/documentationSearch"
+    },
     "actions": { "$ref": "#/$defs/actionSet" },
     "blocks": { "$ref": "#/$defs/transcript" },
     "draftConflict": {
@@ -38,6 +43,45 @@
           "maxItems": 200
         },
         "rankedAt": { "$ref": "#/$defs/isoTimestamp" }
+      }
+    },
+    "documentationSearch": {
+      "description": "A search response. Selecting a result may populate a draft, change context, or reveal options, but it must never imply an operation happened (§4.4) — hence no execution state anywhere in this shape.",
+      "type": "object",
+      "required": ["results"],
+      "additionalProperties": false,
+      "properties": {
+        "query": { "type": "string", "maxLength": 200 },
+        "results": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/documentationSearchResult" },
+          "maxItems": 50
+        }
+      }
+    },
+    "documentationSearchResult": {
+      "description": "One search hit. kind is a discriminated union so a client knows what selecting it means without inspecting the payload.",
+      "type": "object",
+      "required": ["kind", "ref", "score"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["document", "task", "command", "concept"]
+        },
+        "ref": { "$ref": "#/$defs/documentationRef" },
+        "taskId": { "type": ["string", "null"], "maxLength": 64 },
+        "commandId": {
+          "description": "For a command hit: the documented command this result names.",
+          "type": ["string", "null"],
+          "maxLength": 64
+        },
+        "score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "excerpt": {
+          "description": "Matched text for display. Bounded, because a result list is not a place to render a whole document.",
+          "type": "string",
+          "maxLength": 400
+        }
       }
     },
     "actionSet": {
@@ -160,7 +204,10 @@
         "detail": { "type": "string", "maxLength": 500 },
         "draft": { "$ref": "#/$defs/commandDraft" },
         "score": { "type": "number", "minimum": 0, "maximum": 1 },
-        "documentId": { "type": ["string", "null"], "maxLength": 64 }
+        "doc": {
+          "description": "The documentation this suggestion came from, so selecting it can update context and the same explanation is available on hover (§4.5).",
+          "$ref": "#/$defs/documentationRef"
+        }
       }
     },
     "action": {
@@ -175,7 +222,10 @@
           "enum": ["openDocument", "startTask", "reuseCommand", "clearTranscript", "cancelExecution", "endSession"]
         },
         "label": { "type": "string", "minLength": 1, "maxLength": 120 },
-        "documentId": { "type": ["string", "null"], "maxLength": 64 },
+        "doc": {
+          "description": "The documentation this action leads to. Explicit rather than inferred, so an element never resolves its own target by parsing prose (§6.3).",
+          "$ref": "#/$defs/documentationRef"
+        },
         "taskId": { "type": ["string", "null"], "maxLength": 64 },
         "executionId": { "oneOf": [{ "$ref": "#/$defs/uuid" }, { "type": "null" }] },
         "disabledReason": {
@@ -186,14 +236,25 @@
       }
     },
     "documentationRef": {
-      "description": "A pointer to a published document.",
+      "description": "A pointer to a published document, and the join between documentation and interaction. A core interaction entity (LAZARUS_MODEL.md §5.1), not a convenience: documentation search, command suggestions, actions, pills and transcript blocks all carry one. Hover explanations are derived from this and the creator's documentation rather than from assumptions about the command (§4.5).",
       "type": "object",
       "required": ["documentId"],
       "additionalProperties": false,
       "properties": {
         "documentId": { "type": "string", "maxLength": 64 },
         "title": { "type": "string", "maxLength": 200 },
-        "anchor": { "type": "string", "maxLength": 128 }
+        "anchor": { "type": "string", "maxLength": 128 },
+        "summary": {
+          "description": "One-line explanation shown in a popover without opening the document (§4.5). Bounded because a popover must not become a second copy of the document.",
+          "type": "string",
+          "maxLength": 300
+        },
+        "relatedCommandIds": {
+          "description": "Commands this document describes, for popovers and search results (§4.5, §6.3). A DISPLAY HINT ONLY: the authoritative command-to-document mapping lives in the experience contract, and the reverse index is derived from it rather than authored twice. Never a permission source.",
+          "type": "array",
+          "items": { "type": "string", "maxLength": 64 },
+          "maxItems": 50
+        }
       }
     },
     "textStyle": {
@@ -237,7 +298,161 @@
           "type": "boolean",
           "default": false
         },
-        "byteCount": { "type": "integer", "minimum": 0 }
+        "byteCount": { "type": "integer", "minimum": 0 },
+        "structured": { "$ref": "#/$defs/structuredOutput" }
+      }
+    },
+    "structuredOutput": {
+      "description": "Output recognised as structured content (§4.6). A discriminated union of component types a renderer knows how to instantiate — never arbitrary content, and never a component the renderer has to trust. EVERY branch requires `raw`, carrying the text the program actually printed, for two reasons the model is explicit about: a rich renderer must not fabricate or silently alter the execution result, and anything unrecognised must fall back to that text rather than disappear (§4.6, §10.3). Presentation is therefore layered on top of real output and is never a replacement for it.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["kind", "raw"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "data" },
+            "raw": { "$ref": "#/$defs/rawText" },
+            "data": {
+              "description": "A JSON object or array recognised by an explicitly defined protocol. Deliberately not scalars: structured data is structured, and a scalar has nothing to structure — it belongs in `raw`. The RENDERER validates what it will instantiate and falls back to raw for anything it does not recognise.",
+              "oneOf": [{ "type": "object" }, { "type": "array" }]
+            },
+            "dataType": { "type": ["string", "null"], "maxLength": 128 }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["kind", "raw", "label"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "section" },
+            "raw": { "$ref": "#/$defs/rawText" },
+            "label": { "type": "string", "minLength": 1, "maxLength": 200 },
+            "expandedByDefault": { "type": "boolean", "default": false },
+            "content": { "$ref": "#/$defs/inlineContentList" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["kind", "raw", "options"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "options" },
+            "raw": { "$ref": "#/$defs/rawText" },
+            "label": { "type": ["string", "null"], "maxLength": 200 },
+            "options": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/outputOption" },
+              "maxItems": 100
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["kind", "raw", "links"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "links" },
+            "raw": { "$ref": "#/$defs/rawText" },
+            "links": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/outputLink" },
+              "maxItems": 100
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["kind", "raw", "pills"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "commandPills" },
+            "raw": { "$ref": "#/$defs/rawText" },
+            "pills": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/commandPill" },
+              "maxItems": 100
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["kind", "raw", "doc"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "documentation" },
+            "raw": { "$ref": "#/$defs/rawText" },
+            "doc": { "$ref": "#/$defs/documentationRef" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["kind", "raw", "actionIds"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "control" },
+            "raw": { "$ref": "#/$defs/rawText" },
+            "label": { "type": "string", "minLength": 1, "maxLength": 120 },
+            "actionIds": {
+              "description": "Ids of DECLARED actions this control offers (§5.3). The element names what it can do and a central interaction layer decides how — so command output can never carry behaviour, only a request for behaviour the product already knows about. This is the boundary that stops output from becoming executable UI (§13).",
+              "type": "array",
+              "items": { "$ref": "#/$defs/uuid" },
+              "minItems": 1,
+              "maxItems": 20
+            },
+            "value": { "oneOf": [{ "type": "string" }, { "type": "number" }, { "type": "boolean" }, { "type": "null" }] }
+          }
+        }
+      ]
+    },
+    "rawText": {
+      "description": "The text the program actually printed for this component. Always carried with structured output so the result can fall back to it (§4.6, §10.3).",
+      "type": "string",
+      "maxLength": 65536
+    },
+    "inlineContentList": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/inlineContent" },
+      "maxItems": 512
+    },
+    "outputOption": {
+      "description": "One choice in an options component (§4.2). Selecting one composes into the draft; it never executes anything (§4.3).",
+      "type": "object",
+      "required": ["label"],
+      "additionalProperties": false,
+      "properties": {
+        "label": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "detail": { "type": "string", "maxLength": 500 },
+        "draft": { "$ref": "#/$defs/commandDraft" },
+        "selected": { "type": "boolean", "default": false },
+        "disabledReason": { "type": ["string", "null"], "maxLength": 300 }
+      }
+    },
+    "outputLink": {
+      "description": "A link surfaced by output. Destination origin is checked when the output is recognised, and `external` is a fact about what was checked rather than a hint to the renderer (§13).",
+      "type": "object",
+      "required": ["href", "label"],
+      "additionalProperties": false,
+      "properties": {
+        "href": { "type": "string", "maxLength": 2048 },
+        "label": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "external": { "type": "boolean", "default": false }
+      }
+    },
+    "commandPill": {
+      "description": "A pill-shaped element representing a command or a command fragment (§4.3). A pill may be a complete command or a fragment depending on context. Selecting one composes or reveals; it NEVER executes, because a suggestion that silently executes is explicitly not allowed (§4.3). `fragment` is display-only text and is never submitted as a command.",
+      "type": "object",
+      "required": ["label"],
+      "additionalProperties": false,
+      "properties": {
+        "label": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "draft": { "$ref": "#/$defs/commandDraft" },
+        "fragment": { "type": "string", "maxLength": 200 },
+        "doc": { "$ref": "#/$defs/documentationRef" },
+        "prepared": {
+          "description": "Whether this pill is part of a prepared sequence rather than something already run. The interface must distinguish a prepared sequence from commands that actually executed (§4.3).",
+          "type": "boolean",
+          "default": false
+        }
       }
     },
     "executionRequest": {
@@ -424,13 +639,16 @@
       ]
     },
     "inlineContent": {
-      "description": "Content rendered inline within a transcript block or a document fragment. A discriminated union, so a renderer has a total switch rather than a guess (AGENTS.md §6).",
+      "description": "Content rendered inline within a transcript block or a document fragment. A discriminated union, so a renderer has a total switch rather than a guess (AGENTS.md §6). Covers the inline kinds the model lists in §10.2: text, command tokens, links, documentation references, and supported interactive controls.",
       "oneOf": [
         { "$ref": "#/$defs/inlineText" },
         { "$ref": "#/$defs/inlineEmphasis" },
         { "$ref": "#/$defs/inlineCode" },
         { "$ref": "#/$defs/inlineLink" },
-        { "$ref": "#/$defs/inlineCommand" }
+        { "$ref": "#/$defs/inlineCommand" },
+        { "$ref": "#/$defs/inlineDocumentation" },
+        { "$ref": "#/$defs/inlineControl" },
+        { "$ref": "#/$defs/inlinePill" }
       ]
     },
     "inlineText": {
@@ -486,6 +704,43 @@
         "summary": { "type": "string", "maxLength": 500 }
       }
     },
+    "inlineDocumentation": {
+      "description": "A documentation reference inside a transcript block, so output can explain itself with the creator's documentation rather than with invented prose (§4.5, §4.6).",
+      "type": "object",
+      "required": ["kind", "doc"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "documentationRef" },
+        "doc": { "$ref": "#/$defs/documentationRef" }
+      }
+    },
+    "inlineControl": {
+      "description": "A supported interactive control inline in content (§10.2). It names DECLARED actions rather than carrying behaviour, so no document or output can introduce new frontend behaviour (§5.3, §13).",
+      "type": "object",
+      "required": ["kind", "actionIds"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "control" },
+        "label": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "actionIds": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/uuid" },
+          "minItems": 1,
+          "maxItems": 20
+        },
+        "value": { "oneOf": [{ "type": "string" }, { "type": "number" }, { "type": "boolean" }, { "type": "null" }] }
+      }
+    },
+    "inlinePill": {
+      "description": "A command pill inside documentation or a transcript (§4.3). Selecting it composes a draft or reveals options; it never executes.",
+      "type": "object",
+      "required": ["kind", "pill"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "pill" },
+        "pill": { "$ref": "#/$defs/commandPill" }
+      }
+    },
     "draftConflict": {
       "description": "Raised when a context change would replace a draft the reader has edited. The interaction core decides that this is a conflict; the client asks (ADR-0014).",
       "type": "object",
@@ -495,6 +750,59 @@
         "draft": { "$ref": "#/$defs/commandDraft" },
         "context": { "$ref": "#/$defs/workspaceContext" },
         "raisedAt": { "$ref": "#/$defs/isoTimestamp" }
+      }
+    },
+    "localSession": {
+      "description": "The reader's own record of their temporary experience, persisted in browser storage (§8.1, §8.2). NOT the runtime session and NOT the server's coordination descriptor: §8.3 says those three have different lifecycles and must not be conflated. This is the browser-side one, and it deliberately has no tenant, no routing metadata and no credentials — sensitive values must not be placed in browser storage for convenience (§8.1). The server-side descriptor lives in session.schema.json.",
+      "type": "object",
+      "required": ["schemaVersion", "id", "experienceId", "context", "transcript", "createdAt", "updatedAt"],
+      "additionalProperties": false,
+      "properties": {
+        "schemaVersion": {
+          "description": "Version of THIS record, for migration. The model calls schema migrations out as something this design must account for (§8.2), so it is a required field rather than something inferred from the presence of other keys.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "id": { "$ref": "#/$defs/uuid" },
+        "experienceId": {
+          "description": "The experience this record belongs to. The model calls this workspaceId (§8.2); one concept, one name, so the interaction contract's name wins.",
+          "$ref": "#/$defs/uuid"
+        },
+        "context": { "$ref": "#/$defs/workspaceContext" },
+        "draft": {
+          "description": "The reader's current or most recent draft. Structured rather than a raw string, so it restores with the same shape the reducer reads.",
+          "oneOf": [{ "$ref": "#/$defs/commandDraft" }, { "type": "null" }]
+        },
+        "transcript": { "$ref": "#/$defs/transcript" },
+        "runtimeSession": {
+          "description": "The runtime session this record was last associated with, or null when there is none. Carries the server's state so a restored transcript can be honest about whether the environment still exists — §8.4 is explicit that a restored transcript must not imply the old runtime is still active. A reader can inspect local history long after the session expired (§8.3).",
+          "oneOf": [{ "$ref": "#/$defs/localRuntimeLink" }, { "type": "null" }]
+        },
+        "createdAt": { "$ref": "#/$defs/isoTimestamp" },
+        "updatedAt": { "$ref": "#/$defs/isoTimestamp" },
+        "expiresAt": {
+          "description": "When this local record may be discarded. RFC 3339 rather than the epoch milliseconds of the model's illustrative type (§8.2), because the rest of this contract does not let two runtimes disagree about a time unit. Retention limits themselves are an open decision (§17), so no policy is encoded here.",
+          "$ref": "#/$defs/isoTimestamp"
+        }
+      }
+    },
+    "localRuntimeLink": {
+      "description": "A reader-side pointer to a runtime session. Coordination and expiry stay the backend's responsibility; the browser is never trusted to close a session correctly (§8.5).",
+      "type": "object",
+      "required": ["sessionId", "state"],
+      "additionalProperties": false,
+      "properties": {
+        "sessionId": { "$ref": "#/$defs/uuid" },
+        "state": {
+          "description": "The last known runtime state, mirroring the server-side descriptor's vocabulary so restoration cannot invent a state the server would not recognise.",
+          "type": "string",
+          "enum": ["starting", "ready", "ended", "expired", "failed", "unknown"]
+        },
+        "expiresAt": { "oneOf": [{ "$ref": "#/$defs/isoTimestamp" }, { "type": "null" }] },
+        "lastConfirmedAt": {
+          "description": "When the client last heard from the runtime. Absence of confirmation is why `unknown` exists: the honest state after a tab has been closed for a while is not `ready`.",
+          "oneOf": [{ "$ref": "#/$defs/isoTimestamp" }, { "type": "null" }]
+        }
       }
     }
   }

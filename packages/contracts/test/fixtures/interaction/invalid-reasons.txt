@@ -8,8 +8,10 @@
 action-without-label.json|required|/actions/items/0|label|an action the reader cannot read is not an action
 block-missing-id.json|required|/blocks/blocks/0|id|every block needs a stable id, or a reconnected client cannot deduplicate
 denied-without-decision.json|required|/blocks/blocks/0|decision|a denial must carry its decision; a bare notice would hide why
+control-without-actions.json|required|/blocks/blocks/0/output/structured|actionIds|A control names DECLARED actions rather than carrying behaviour (§5.3). Command output may request behaviour the product already knows about; it may never introduce new behaviour, or a program's output becomes executable UI (§13).
 draft-shell-string.json|pattern|/draft/executable|-|a draft is an argument list, never a shell string (ADR-0013)
 exit-code-out-of-range.json|maximum|/blocks/blocks/0/exitCode|-|an exit code outside the real range is not a result the program printed
 literal-color-role.json|enum|/blocks/blocks/0/output/spans/0/style/color|-|a literal colour cannot cross the contract; presentation maps a role to a token (ADR-0018)
+structured-without-raw.json|required|/blocks/blocks/0/output/structured|raw|Every structured component carries the text the program actually printed. A rich renderer must not fabricate or silently alter the execution result, and unrecognised output must fall back to plain text (§10.3) — which is impossible if the raw text was not sent. Presentation is layered on real output, never a replacement for it (§4.6).
 unknown-block-kind.json|const|/blocks/blocks/0/kind|-|an unknown block kind must not be silently accepted; clients switch exhaustively
 unknown-top-level-field.json|additionalProperties|/|-|a pty, or any unknown field, must not be silently ignored

@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { registerSchemaSuite } from './schema-fixtures.js';
+import { registerDefSuite, registerSchemaSuite } from './schema-fixtures.js';
 
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 
@@ -16,6 +16,30 @@ registerSchemaSuite({
   name: 'interaction',
   schemaFile: 'src/schema/interaction.schema.json',
   fixtureDir: 'interaction',
+});
+
+/**
+ * These two definitions are deliberately unreachable from the schema root: each is a
+ * standalone document rather than a field of interaction state. Without their own
+ * suite every field in them would be unvalidated, so they are compiled and exercised
+ * directly.
+ *
+ * `localSession` is the browser-side record from LAZARUS_MODEL.md §8. Its invalid
+ * fixtures are the interesting ones — no tenancy, no secrets, a required migration
+ * version, and only runtime states the server would recognise.
+ */
+registerDefSuite({
+  name: 'interaction',
+  schemaFile: 'src/schema/interaction.schema.json',
+  fixtureDir: 'interaction',
+  defName: 'localSession',
+});
+
+registerDefSuite({
+  name: 'interaction',
+  schemaFile: 'src/schema/interaction.schema.json',
+  fixtureDir: 'interaction',
+  defName: 'executionRequest',
 });
 
 /**

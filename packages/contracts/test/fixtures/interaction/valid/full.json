@@ -36,8 +36,15 @@
           ]
         },
         "score": 0.98,
-        "documentId": "push-a-branch",
-        "detail": "Push the current branch"
+        "detail": "Push the current branch",
+        "doc": {
+          "documentId": "push-a-branch",
+          "title": "Pushing a branch",
+          "summary": "Create a branch and publish it to the remote.",
+          "relatedCommandIds": [
+            "git-push"
+          ]
+        }
       },
       {
         "kind": "executableName",
@@ -71,7 +78,16 @@
         "id": "44444444-4444-4444-8444-444444444444",
         "kind": "openDocument",
         "label": "Read: pushing a branch",
-        "documentId": "push-a-branch"
+        "doc": {
+          "documentId": "push-a-branch",
+          "title": "Pushing a branch",
+          "anchor": "remote",
+          "summary": "Create a branch and publish it to the remote.",
+          "relatedCommandIds": [
+            "git-push",
+            "git-push-set-upstream"
+          ]
+        }
       },
       {
         "id": "44444444-4444-4444-8444-444444444444",
@@ -145,6 +161,121 @@
         "at": "2026-10-04T12:00:00.000Z"
       },
       {
+        "kind": "output",
+        "id": "55555555-5555-4555-8555-555555555555",
+        "executionId": "33333333-3333-4333-8333-333333333333",
+        "sequence": 1,
+        "output": {
+          "spans": [
+            {
+              "text": "remote: origin"
+            }
+          ],
+          "structured": {
+            "kind": "section",
+            "raw": "remote: origin\n  push refspec configured\n",
+            "label": "Remote configuration",
+            "expandedByDefault": false,
+            "content": [
+              {
+                "kind": "text",
+                "value": "Set the upstream with "
+              },
+              {
+                "kind": "code",
+                "value": "git push --set-upstream origin main",
+                "language": "bash"
+              },
+              {
+                "kind": "text",
+                "value": " \u2014 see "
+              },
+              {
+                "kind": "documentationRef",
+                "doc": {
+                  "documentId": "push-a-branch",
+                  "title": "Pushing a branch",
+                  "summary": "Create a branch and publish it to the remote.",
+                  "relatedCommandIds": [
+                    "git-push"
+                  ]
+                }
+              },
+              {
+                "kind": "text",
+                "value": " for the full workflow."
+              },
+              {
+                "kind": "pill",
+                "pill": {
+                  "label": "git push -u origin main",
+                  "draft": {
+                    "executable": "git",
+                    "arguments": [
+                      {
+                        "value": "push"
+                      },
+                      {
+                        "value": "-u"
+                      },
+                      {
+                        "value": "origin"
+                      },
+                      {
+                        "value": "main"
+                      }
+                    ],
+                    "sourceCommandId": "git-push"
+                  },
+                  "doc": {
+                    "documentId": "push-a-branch",
+                    "title": "Pushing a branch",
+                    "summary": "Create a branch and publish it to the remote.",
+                    "relatedCommandIds": [
+                      "git-push"
+                    ]
+                  },
+                  "prepared": true
+                }
+              },
+              {
+                "kind": "control",
+                "label": "Re-run this check",
+                "actionIds": [
+                  "44444444-4444-4444-8444-444444444444"
+                ],
+                "value": null
+              }
+            ]
+          },
+          "byteCount": 38
+        },
+        "at": "2026-10-04T12:00:00.000Z"
+      },
+      {
+        "kind": "output",
+        "id": "66666666-6666-4666-8666-666666666666",
+        "executionId": "33333333-3333-4333-8333-333333333333",
+        "sequence": 2,
+        "output": {
+          "spans": [
+            {
+              "text": "{\"branch\":\"main\"}"
+            }
+          ],
+          "structured": {
+            "kind": "data",
+            "raw": "{\"branch\":\"main\"}",
+            "dataType": "git.branch",
+            "data": {
+              "branch": "main"
+            }
+          },
+          "byteCount": 17
+        },
+        "at": "2026-10-04T12:00:00.000Z"
+      },
+      {
         "kind": "result",
         "id": "44444444-4444-4444-8444-444444444444",
         "executionId": "33333333-3333-4333-8333-333333333333",
@@ -198,5 +329,54 @@
       "documentId": "push-a-branch"
     },
     "raisedAt": "2026-10-04T12:00:00.000Z"
+  },
+  "search": {
+    "query": "push to the remote",
+    "results": [
+      {
+        "kind": "document",
+        "ref": {
+          "documentId": "push-a-branch",
+          "title": "Pushing a branch",
+          "anchor": "remote",
+          "summary": "Create a branch and publish it to the remote.",
+          "relatedCommandIds": [
+            "git-push",
+            "git-push-set-upstream"
+          ]
+        },
+        "score": 0.94,
+        "excerpt": "Push a branch and set its upstream."
+      },
+      {
+        "kind": "task",
+        "ref": {
+          "documentId": "publish-branch",
+          "title": "Publish a branch"
+        },
+        "taskId": "task-push",
+        "score": 0.88
+      },
+      {
+        "kind": "command",
+        "ref": {
+          "documentId": "push-a-branch",
+          "title": "Pushing a branch",
+          "relatedCommandIds": [
+            "git-push"
+          ]
+        },
+        "commandId": "git-push",
+        "score": 0.81
+      },
+      {
+        "kind": "concept",
+        "ref": {
+          "documentId": "remote",
+          "title": "Remotes"
+        },
+        "score": 0.5
+      }
+    ]
   }
 }
