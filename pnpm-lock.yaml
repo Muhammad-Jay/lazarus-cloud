@@ -51,6 +51,28 @@ importers:
         specifier: 'catalog:'
         version: 3.2.7(@types/node@24.19.0)
 
+  packages/interaction:
+    dependencies:
+      '@lazarus/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.19.0
+      ajv:
+        specifier: 'catalog:'
+        version: 8.20.0
+      ajv-formats:
+        specifier: 'catalog:'
+        version: 3.0.1(ajv@8.20.0)
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: 'catalog:'
+        version: 3.2.7(@types/node@24.19.0)
+
   packages/spec:
     devDependencies:
       '@types/node':

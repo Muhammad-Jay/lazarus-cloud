@@ -44,12 +44,13 @@ model says runtime technology should be *informed by* observed requirements
 | Area | State |
 |---|---|
 | `packages/spec/lazarus.schema.json` | done — experience contract, 33 tests |
-| `packages/contracts/src/schema/interaction.schema.json` | done, **but incomplete against the model** — see Phase 2 |
-| `packages/contracts/src/schema/session.schema.json` | done — server-side descriptor only |
-| TypeScript codegen (`tools/codegen`) | done — deterministic, idempotent |
+| `packages/contracts/src/schema/interaction.schema.json` | done — 40 tests, including every §5.1 entity |
+| `packages/contracts/src/schema/session.schema.json` | done — server-side descriptor only, 31 tests |
+| TypeScript codegen (`tools/codegen`) | done — deterministic, idempotent, collapses duplicate interfaces |
 | `docs/experience-reference.md`, `docs/contracts-reference.md` | done |
 | `contract-drift` CI | done — regeneration + reference-update checks |
-| C# and Go contract targets | not built |
+| `packages/interaction/` | done — 184 tests: reducer, normalisation, ranking, ANSI filter, id derivation |
+| C# and Go contract targets | not built — 2.6 |
 
 Nothing else in the repository is implemented. `apps/web`, `apps/control-plane`,
 `services/auth` and `infra` contain placeholder READMEs, and `apps/cli/main.go` is a
@@ -64,46 +65,81 @@ The model calls consistency "the central architectural requirement"
 importing only `@lazarus/contracts` (§5.1, §9.7, ADR-0014). This package is the
 reason a future desktop terminal is a new shell rather than a rewrite.
 
-- [ ] **1.1** State shape and a pure `(state, action) => state` reducer. No React,
+- [x] **1.1** State shape and a pure `(state, action) => state` reducer. No React,
       no DOM, no fetch, no storage, no timers. Reducer input and output are plain
       values so any client can drive the same transitions.
-- [ ] **1.2** Execution arrives as an `ExecutionEvent` stream applied to the
+- [x] **1.2** Execution arrives as an `ExecutionEvent` stream applied to the
       reducer. Output is never read back out of component state.
-- [ ] **1.3** Transcript normalisation, done **once**, where an `ExecutionEvent`
+- [x] **1.3** Transcript normalisation, done **once**, where an `ExecutionEvent`
       becomes a `TranscriptBlock`. Presentation consumes blocks; it never parses raw
       output and never reorders blocks.
-- [ ] **1.4** Suggestion ranking in the package. A client never ranks (§4.2).
-- [ ] **1.5** Draft-conflict resolution: a context change replaces an unmodified
+- [x] **1.4** Suggestion ranking in the package. A client never ranks (§4.2).
+- [x] **1.5** Draft-conflict resolution: a context change replaces an unmodified
       draft and raises `draftConflict` for an edited one. §5.2 leaves the exact
       policy as an interaction design decision — the model permits either; we
       recorded ours in `docs/contracts-reference.md`.
-- [ ] **1.6** ANSI to colour mapping is a **filter**, not an emulator. Cursor and
+- [x] **1.6** ANSI to colour mapping is a **filter**, not an emulator. Cursor and
       erase semantics are stripped. Never `innerHTML` (ADR-0013).
-- [ ] **1.7** Table-driven Vitest suite over every action × event pair.
+- [x] **1.7** Table-driven Vitest suite over every action × event pair.
 
 **Accept:** `pnpm -F @lazarus/interaction test` green; the dependency list is
 exactly `@lazarus/contracts`; a case exists for each action and each event.
+
+**Done.** `pnpm -F @lazarus/interaction test` — 184 tests across 6 files, 1.4s.
+Typecheck clean.
+
+Three decisions recorded in code rather than left implicit:
+
+- **Draft identity.** Block ids are *derived* from the event that produced them
+  (`syntheticId`), not random. Reconnection replays events (§8.4), and a random id
+  would append a duplicate block on every replay. They are shaped as UUIDs because
+  the contract requires it, but stamped with RFC 9562 version `8` so a block id can
+  never be mistaken for a server-minted one.
+- **Conflict rule.** Unmodified → replaced; modified → raised and **kept**, because
+  the alternative loses typing. Recorded in `docs/contracts-reference.md`.
+- **Extended ANSI colour is dropped**, not approximated. There is no token for
+  "colour 214", so `38;5;n` falls back to `default` rather than inventing one
+  (ADR-0018).
+
+Two things the tests caught that would otherwise have shipped:
+
+- `SCORE_CUTOFF` as a threshold did not work. `ls` scored 0.1 and `curl` 0.075
+  against the query `zzzz`, so typing nonsense still surfaced two commands.
+  "Matched nothing" is now its own answer rather than a low score, and the constant
+  is gone.
+- `replay` de-duplication, `modified`-draft conflicts, and the ANSI literal-colour
+  rule were each verified by mutating the source and confirming a named case fails,
+  rather than by trusting a passing suite.
+
+`test/framework-free.test.ts` enforces the leaf rule by reading the source: a React
+import, a `localStorage` read, or a `Date.now()` call fails the suite. Verified by
+mutation. `test/reducer.test.ts` validates every resulting state against the
+authoritative schema, because an explicit `undefined` property is *present* as a key
+— `toEqual` ignores it, `additionalProperties: false` rejects it.
 
 ---
 
 ## Phase 2 — Close the contract gaps (`@lazarus/contracts`, `@lazarus/spec`)
 
 Model §16 Phase 2 requires schemas for *documentation metadata and references*,
-*structured output*, and *local session persistence*. Three are missing. Until they
-exist, Phase 1 is being built against contracts the model does not describe.
+*structured output*, and *local session persistence*.
 
-- [ ] **2.1** `DocumentationRef` — the model lists it as a core interaction entity
+**2.1–2.4 are done.** They were missing because nothing had read the model against
+the schema — the old plan did not ask whether the contracts described the product.
+Phase 1 was therefore being built against contracts that did not describe it.
+
+- [x] **2.1** `DocumentationRef` — the model lists it as a core interaction entity
       (§5.1) and documentation search drives it (§4.4). Not present in the
       interaction schema today.
-- [ ] **2.2** Structured / rich output. §4.6 and §10 want expandable sections,
+- [x] **2.2** Structured / rich output. §4.6 and §10 want expandable sections,
       dropdowns, links, command pills, contextual documentation and interactive
       controls. `RichOutput` is currently ANSI-styled text spans only. Needs a
       validated component protocol with an explicit **fallback to raw text** for
       anything unrecognised (§10.3).
-- [ ] **2.3** Inline content: add `documentationRef` and interactive controls to the
+- [x] **2.3** Inline content: add `documentationRef` and interactive controls to the
       existing `inlineText`/`inlineEmphasis`/`inlineCode`/`inlineLink`/`inlineCommand`
       union (§10.2).
-- [ ] **2.4** Local session persistence record — the browser-side `LocalSession`
+- [x] **2.4** Local session persistence record — the browser-side `LocalSession`
       model (§8.1, §8.2). Distinct from `session.schema.json`, which is the
       server-side coordination descriptor (§8.3). Both are needed and they must not
       be conflated.
@@ -113,6 +149,30 @@ exist, Phase 1 is being built against contracts the model does not describe.
 
 **Accept:** every entity in §5.1 has a schema; §16 Phase 2 checklist is fully
 covered; golden tests per schema; `contract-drift` covers the new types.
+
+**2.1–2.4 done** (commit `0e0afd4`), 71 tests then 75. 2.5 and 2.6 remain.
+
+The load-bearing decision: **every branch of `StructuredOutput` requires `raw`**,
+carrying the text the program actually printed. §4.6 forbids a renderer from
+fabricating or silently altering a result, and §10.3 requires unrecognised output
+to fall back to plain text — neither is achievable unless the raw text travelled
+with the structure. So presentation is layered on top of real output, never a
+replacement for it. A fixture fails if `raw` is removed.
+
+A `control` names declared `actionIds` and carries no behaviour, so output can
+request an operation the product already knows about but cannot introduce new
+behaviour. That is the line between structured output and executable UI.
+
+`LocalSession` is the browser-side record from §8 and is a **separate type** from
+the server descriptor — §8.3 says those are three lifecycles. It carries no
+`tenantId`, no routing metadata and no credentials, and has fixtures proving all
+three are rejected. Its runtime state mirrors the server's vocabulary plus
+`unknown`, because §8.4 requires a restored transcript not to imply the runtime is
+still alive.
+
+`localSession` and `executionRequest` are unreachable from the schema root, so
+nothing would have validated them. The harness gained a suite that compiles a
+`$def` directly, which is what makes those rejections real rather than decorative.
 
 ---
 
@@ -219,12 +279,14 @@ so it is visible rather than quietly decided.
 | Frontend framework | not finalised (§9.7, §17) | `AGENTS.md` + docs assert **Next.js 16** | **Conflict.** Decide against §9.7 requirements, then realign the docs. |
 | Runtime / isolation technology | must be evaluated before selection (§9.3, §16 Phase 6) | `AGENTS.md` asserts **rootless podman** | **Conflict.** Same. |
 | Execution gateway boundaries | open (§9.2, §17) | docs put streaming on the .NET control plane | **Conflict.** §9.2 forbids the control plane being the streaming hot path. |
-| Transcript + structured output schemas | open (§17) | partially drafted | Phase 2.2. |
+| Structured output protocol | open (§17) | **Decided** — every branch carries `raw` | Phase 2.2. Closed. |
+| Draft-conflict policy | either is permitted (§5.2) | **Decided** — modified draft wins | Phase 1.5. Recorded in `docs/contracts-reference.md`. |
 | MDX metadata / component schema | open (§6.2, §17) | not started | Phase 2.5. |
 | Creator configuration format | open (§11, §17) | experience schema drafted | Phase 7. |
-| Command suggestion + parsing strategy | open (§17) | not started | Phase 4. |
-| Local retention and storage limits | open (§8.5, §17) | not started | Phase 2.4. |
-| Reconnection / expiration behaviour | open (§8.4, §17) | partially drafted | Phase 5.5. |
+| Command suggestion strategy | open (§17) | **Decided** — deterministic, in-package | Phase 1.4. Command *parsing* still open, Phase 4.2. |
+| Local session record | open (§17) | **Decided** — `LocalSession`, browser-side | Phase 2.4. Closed. |
+| Local retention and storage limits | open (§8.5, §17) | record exists; **limits not chosen** | Phase 4.5. |
+| Reconnection replay | open (§8.4, §17) | **Decided** — derived block ids, idempotent replay | Phase 1.1. Expiration still open, Phase 5.5. |
 | Deployment topology | open (§12, §17) | compose files assume a shape | Phase 8. |
 | Desktop application architecture | open (§17) | `apps/desktop` assumed Tauri | After the first product. |
 
