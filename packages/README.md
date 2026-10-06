@@ -10,7 +10,7 @@ with behaviour lives here.
 | `spec/` | `lazarus.schema.json`, generated TS types, validator | 2 | done |
 | `contracts/` | Interaction + session schemas and their generated TS | 2 | done |
 | `interaction/` | The interaction model: reducer, transcript, ranking, ANSI filter | 1 | done |
-| `tokens/` | Every colour, spacing, radius, shadow, motion value | 3 | next |
+| `tokens/` | Every colour, spacing, radius, shadow, motion value | 3 | done |
 | `api-client/` | HTTP transport, `ProblemDetails` normalisation | 5 | not started |
 | `realtime/` | Execution event stream client, reconnection | 5 | not started |
 | `auth-client/` | Better Auth client, session hooks, permission gates | 7 | not started |

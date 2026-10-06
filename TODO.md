@@ -183,9 +183,9 @@ decoration, and §4.6 keeps rich rendering on semantic roles. Tokens are the sin
 source of every colour, spacing, radius, shadow and motion value; raw values outside
 this package are a build failure (ADR-0018).
 
-- [ ] **3.1** Single source of tokens; generate the CSS custom properties and the TS
+- [x] **3.1** Single source of tokens; generate the CSS custom properties and the TS
       types from it. Nothing imports anything — it is a leaf.
-- [ ] **3.2** Every `ColorRole` in the interaction schema resolves to a token.
+- [x] **3.2** Every `ColorRole` in the interaction schema resolves to a token.
 
 ---
 
