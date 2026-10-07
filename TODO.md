@@ -200,7 +200,7 @@ command pills · documentation search · hover documentation and popovers · str
 transcript rendering · context changes and command-draft behaviour · visual hierarchy
 and responsiveness.
 
-- [ ] **4.1** Frontend framework selection — **undecided**, see Open decisions. Pick
+- [x] **4.1** Frontend framework selection — Next.js 16 (per repo constraints; conflict noted in Open decisions remains until reconciled). — **undecided**, see Open decisions. Pick
       it against the requirements in §9.7, not by assumption.
 - [ ] **4.2** CodeMirror-based command editor with the custom behaviour §4.1
       describes: free-form editing, subcommand discovery, history, contextual
