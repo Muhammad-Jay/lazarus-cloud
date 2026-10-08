@@ -27,12 +27,18 @@ node_modules/
 .pnp.*
 *.tsbuildinfo
 next-env.d.ts
+.next/
 .turbo/
 .nx/
 coverage/
 *.lcov
 .vitest/
 .vite/
+packages/*/dist/
+
+# ── Local agent tooling ────────────────────────────────────────────────────
+opencode.json
+AGENTS.md
 
 # ── .NET ───────────────────────────────────────────────────────────────────
 [Bb]in/

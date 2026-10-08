@@ -6,9 +6,18 @@
   "license": "MIT",
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./interaction": "./src/generated/interaction.ts",
-    "./session": "./src/generated/session.ts",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./interaction": {
+      "types": "./dist/generated/interaction.d.ts",
+      "default": "./dist/generated/interaction.js"
+    },
+    "./session": {
+      "types": "./dist/generated/session.d.ts",
+      "default": "./dist/generated/session.js"
+    },
     "./schema/*": "./src/schema/*"
   },
   "files": [
@@ -16,7 +25,8 @@
   ],
   "scripts": {
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build": "tsc --project tsconfig.build.json"
   },
   "devDependencies": {
     "@types/node": "catalog:",
@@ -24,5 +34,7 @@
     "ajv-formats": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
-  }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts"
 }
