@@ -1,334 +1,344 @@
 # TODO
 
-This is the work plan. It is **derived from [`LAZARUS_MODEL.md`](./LAZARUS_MODEL.md)**,
-which is the authority on what Lazarus is. Where the two disagree, the model wins and
-this file is wrong until it is corrected.
+This is the working plan for Lazarus. It follows [`AGENTS.md`](./AGENTS.md),
+[`README.md`](./README.md), and [`LAZARUS_MODEL.md`](./LAZARUS_MODEL.md), with
+`AGENTS.md` treated as the boundary authority for architecture and safety.
 
-The previous version of this file was a 26-phase control-plane-first plan inherited
-from the discarded repository. It is gone deliberately: it built infrastructure
-before the product experience, and it assumed a frontend framework and an isolation
-technology that `LAZARUS_MODEL.md` §17 explicitly lists as undecided.
-
-Read [`AGENTS.md`](./AGENTS.md) for how to work here, not for what to build.
-
----
-
-## What Lazarus is, in one paragraph
-
-An interactive documentation and software execution platform. A creator publishes an
-*experience*; a user reads the documentation, composes real commands, runs them in a
-real isolated environment, and reads real results — in one interface. Documentation
-and interaction are one feature. It is not a terminal with docs attached, not an IDE,
-not a simulator of output. See `LAZARUS_MODEL.md` §1–§3.
+Lazarus is an interactive documentation and software execution platform. A creator
+publishes an experience; a user reads documentation, composes real commands, runs
+them in a real isolated environment, and inspects real output in the same
+transcript. The plan below keeps that product shape intact: no PTY, no terminal
+emulator, no IDE, no CI pipeline, no graph editor, no fabricated output.
 
 ---
 
-## Ordering rule
+## Planning Rules
 
-`LAZARUS_MODEL.md` §16 is the priority order, and it is deliberately
-experience-first:
-
-> Development should validate the core product experience before expanding the
-> platform into a large collection of infrastructure and creator features.
-
-So the order is: **interaction model → contracts → one real environment → MDX →
-creator workflow → multi-user validation.** Control-plane breadth, tenancy
-machinery, multi-cloud orchestration and deployment topology come last, because the
-model says runtime technology should be *informed by* observed requirements
-(§16 Phase 6), not selected in advance (§9.3).
+- Work from the contract inward: schema, generated types, interaction model,
+  transport, then UI composition.
+- `apps/web` stays composition-only. Product logic belongs in `packages/*`.
+- Every container, exec, image, filesystem, and network operation goes through a
+  `PolicyEvaluator` decision.
+- Generated code is regenerated from schemas. Generated outputs are never the
+  source of truth.
+- Self-hosting is an acceptance criterion: one person, one machine, one command,
+  no mandatory hosted control plane.
+- Mock execution is allowed only for the prototype fixture and must not be
+  reachable from a production execution path.
 
 ---
 
-## Built so far
+## Current State
 
-| Area | State |
+| Area | Status |
 |---|---|
-| `packages/spec/lazarus.schema.json` | done — experience contract, 33 tests |
-| `packages/contracts/src/schema/interaction.schema.json` | done — 40 tests, including every §5.1 entity |
-| `packages/contracts/src/schema/session.schema.json` | done — server-side descriptor only, 31 tests |
-| TypeScript codegen (`tools/codegen`) | done — deterministic, idempotent, collapses duplicate interfaces |
-| `docs/experience-reference.md`, `docs/contracts-reference.md` | done |
-| `contract-drift` CI | done — regeneration + reference-update checks |
-| `packages/interaction/` | done — 184 tests: reducer, normalisation, ranking, ANSI filter, id derivation |
-| C# and Go contract targets | not built — 2.6 |
+| Experience contract, `packages/spec` | Built and tested. |
+| Interaction/session contracts, `packages/contracts` | Built and tested for TypeScript. C# and Go generation still missing. |
+| Code generation | TypeScript schema and token generation exist. Multi-language targets are next. |
+| Interaction core, `packages/interaction` | Built: reducer, transcript normalization, ranking, ANSI filtering, id derivation. |
+| Tokens, `packages/tokens` | Built: semantic token JSON, generated CSS/TS, ColorRole alignment. |
+| Web app, `apps/web` | Minimal Next app scaffold exists and consumes tokens + interaction. Real product UI not built. |
+| Control plane, `apps/control-plane` | README/planned architecture only. No .NET solution yet. |
+| Auth service, `services/auth` | README/planned architecture only. No Better Auth service yet. |
+| CLI, `apps/cli` | Go build-wiring stub only. |
+| Infra | README/planned self-hosting shape only. Compose stack not implemented. |
+| Docs | Product and boundary docs exist; several package/app READMEs still reflect older phase names or old product wording. |
 
-Nothing else in the repository is implemented. `apps/web`, `apps/control-plane`,
-`services/auth` and `infra` contain placeholder READMEs, and `apps/cli/main.go` is a
-build-wiring stub. There is no prior implementation to preserve or work around.
+Recent completed work:
 
----
-
-## Phase 1 — The interaction core (`@lazarus/interaction`)
-
-The model calls consistency "the central architectural requirement"
-(`LAZARUS_MODEL.md` §18). The interaction model is implemented once, framework-free,
-importing only `@lazarus/contracts` (§5.1, §9.7, ADR-0014). This package is the
-reason a future desktop terminal is a new shell rather than a rewrite.
-
-- [x] **1.1** State shape and a pure `(state, action) => state` reducer. No React,
-      no DOM, no fetch, no storage, no timers. Reducer input and output are plain
-      values so any client can drive the same transitions.
-- [x] **1.2** Execution arrives as an `ExecutionEvent` stream applied to the
-      reducer. Output is never read back out of component state.
-- [x] **1.3** Transcript normalisation, done **once**, where an `ExecutionEvent`
-      becomes a `TranscriptBlock`. Presentation consumes blocks; it never parses raw
-      output and never reorders blocks.
-- [x] **1.4** Suggestion ranking in the package. A client never ranks (§4.2).
-- [x] **1.5** Draft-conflict resolution: a context change replaces an unmodified
-      draft and raises `draftConflict` for an edited one. §5.2 leaves the exact
-      policy as an interaction design decision — the model permits either; we
-      recorded ours in `docs/contracts-reference.md`.
-- [x] **1.6** ANSI to colour mapping is a **filter**, not an emulator. Cursor and
-      erase semantics are stripped. Never `innerHTML` (ADR-0013).
-- [x] **1.7** Table-driven Vitest suite over every action × event pair.
-
-**Accept:** `pnpm -F @lazarus/interaction test` green; the dependency list is
-exactly `@lazarus/contracts`; a case exists for each action and each event.
-
-**Done.** `pnpm -F @lazarus/interaction test` — 184 tests across 6 files, 1.4s.
-Typecheck clean.
-
-Three decisions recorded in code rather than left implicit:
-
-- **Draft identity.** Block ids are *derived* from the event that produced them
-  (`syntheticId`), not random. Reconnection replays events (§8.4), and a random id
-  would append a duplicate block on every replay. They are shaped as UUIDs because
-  the contract requires it, but stamped with RFC 9562 version `8` so a block id can
-  never be mistaken for a server-minted one.
-- **Conflict rule.** Unmodified → replaced; modified → raised and **kept**, because
-  the alternative loses typing. Recorded in `docs/contracts-reference.md`.
-- **Extended ANSI colour is dropped**, not approximated. There is no token for
-  "colour 214", so `38;5;n` falls back to `default` rather than inventing one
-  (ADR-0018).
-
-Two things the tests caught that would otherwise have shipped:
-
-- `SCORE_CUTOFF` as a threshold did not work. `ls` scored 0.1 and `curl` 0.075
-  against the query `zzzz`, so typing nonsense still surfaced two commands.
-  "Matched nothing" is now its own answer rather than a low score, and the constant
-  is gone.
-- `replay` de-duplication, `modified`-draft conflicts, and the ANSI literal-colour
-  rule were each verified by mutating the source and confirming a named case fails,
-  rather than by trusting a passing suite.
-
-`test/framework-free.test.ts` enforces the leaf rule by reading the source: a React
-import, a `localStorage` read, or a `Date.now()` call fails the suite. Verified by
-mutation. `test/reducer.test.ts` validates every resulting state against the
-authoritative schema, because an explicit `undefined` property is *present* as a key
-— `toEqual` ignores it, `additionalProperties: false` rejects it.
+- [x] Interaction model implemented once in `@lazarus/interaction`.
+- [x] Structured interaction/session contracts added with schema tests.
+- [x] Semantic tokens created and generated.
+- [x] Minimal web scaffold added.
+- [x] Next dev resolution fixed for workspace packages using NodeNext `.js` imports.
 
 ---
 
-## Phase 2 — Close the contract gaps (`@lazarus/contracts`, `@lazarus/spec`)
+## Next Phase 0 — Repo Plan And Documentation Alignment
 
-Model §16 Phase 2 requires schemas for *documentation metadata and references*,
-*structured output*, and *local session persistence*.
+The repository now has enough foundation that stale docs are becoming dangerous.
+Clean the plan and docs before adding more product surface.
 
-**2.1–2.4 are done.** They were missing because nothing had read the model against
-the schema — the old plan did not ask whether the contracts described the product.
-Phase 1 was therefore being built against contracts that did not describe it.
+- [x] **0.1** Rewrite this TODO around the current Lazarus product and repo state.
+- [ ] **0.2** Update `apps/web/README.md` to remove the old dashboard, CI, endpoint,
+      and web-terminal plan. Replace it with the interactive documentation
+      workspace responsibilities.
+- [ ] **0.3** Update `apps/control-plane/README.md`, `apps/cli/README.md`,
+      `services/auth/README.md`, and `infra/README.md` so they match
+      `AGENTS.md` and the current phase ordering.
+- [ ] **0.4** Reconcile README version drift: the docs say Next.js 16/.NET 10/Go
+      1.26, while the current web package uses Next 15.5.3 and local tooling may
+      run older Node. Decide whether to upgrade implementation or correct docs.
+- [ ] **0.5** Add a short `docs/architecture.md` or refresh the existing one so the
+      architecture overview, package graph, self-hosting promise, and anti-goals
+      are in one maintained document.
+- [ ] **0.6** Decide how built package outputs are handled. Either require local
+      package builds before app builds, or keep source transpilation as the dev
+      path and document why `dist/` remains ignored.
 
-- [x] **2.1** `DocumentationRef` — the model lists it as a core interaction entity
-      (§5.1) and documentation search drives it (§4.4). Not present in the
-      interaction schema today.
-- [x] **2.2** Structured / rich output. §4.6 and §10 want expandable sections,
-      dropdowns, links, command pills, contextual documentation and interactive
-      controls. `RichOutput` is currently ANSI-styled text spans only. Needs a
-      validated component protocol with an explicit **fallback to raw text** for
-      anything unrecognised (§10.3).
-- [x] **2.3** Inline content: add `documentationRef` and interactive controls to the
-      existing `inlineText`/`inlineEmphasis`/`inlineCode`/`inlineLink`/`inlineCommand`
-      union (§10.2).
-- [x] **2.4** Local session persistence record — the browser-side `LocalSession`
-      model (§8.1, §8.2). Distinct from `session.schema.json`, which is the
-      server-side coordination descriptor (§8.3). Both are needed and they must not
-      be conflated.
-- [ ] **2.5** Documentation metadata schema (§6.2 — the model marks the exact shape
-      as undefined, so this is a decision to make, not to copy).
-- [ ] **2.6** Generate C# and Go targets from the same schemas (ADR-0016, §4.6).
-
-**Accept:** every entity in §5.1 has a schema; §16 Phase 2 checklist is fully
-covered; golden tests per schema; `contract-drift` covers the new types.
-
-**2.1–2.4 done** (commit `0e0afd4`), 71 tests then 75. 2.5 and 2.6 remain.
-
-The load-bearing decision: **every branch of `StructuredOutput` requires `raw`**,
-carrying the text the program actually printed. §4.6 forbids a renderer from
-fabricating or silently altering a result, and §10.3 requires unrecognised output
-to fall back to plain text — neither is achievable unless the raw text travelled
-with the structure. So presentation is layered on top of real output, never a
-replacement for it. A fixture fails if `raw` is removed.
-
-A `control` names declared `actionIds` and carries no behaviour, so output can
-request an operation the product already knows about but cannot introduce new
-behaviour. That is the line between structured output and executable UI.
-
-`LocalSession` is the browser-side record from §8 and is a **separate type** from
-the server descriptor — §8.3 says those are three lifecycles. It carries no
-`tenantId`, no routing metadata and no credentials, and has fixtures proving all
-three are rejected. Its runtime state mirrors the server's vocabulary plus
-`unknown`, because §8.4 requires a restored transcript not to imply the runtime is
-still alive.
-
-`localSession` and `executionRequest` are unreachable from the schema root, so
-nothing would have validated them. The harness gained a suite that compiles a
-`$def` directly, which is what makes those rejections real rather than decorative.
+Accept: `TODO.md`, root `README.md`, app/package READMEs, and architecture docs no
+longer contradict the product shape or current implementation.
 
 ---
 
-## Phase 3 — Design tokens (`@lazarus/tokens`)
+## Next Phase 1 — Tooling And Boundary Enforcement
 
-§15.7 calls premium, deliberate presentation part of usability rather than
-decoration, and §4.6 keeps rich rendering on semantic roles. Tokens are the single
-source of every colour, spacing, radius, shadow and motion value; raw values outside
-this package are a build failure (ADR-0018).
+The hard rules should fail locally before review. Several are described in docs but
+not yet enforced across the whole repo.
 
-- [x] **3.1** Single source of tokens; generate the CSS custom properties and the TS
-      types from it. Nothing imports anything — it is a leaf.
-- [x] **3.2** Every `ColorRole` in the interaction schema resolves to a token.
+- [ ] **1.1** Create shared package tooling in `packages/config`: TypeScript,
+      Vitest, lint, and formatting presets used by every TS package.
+- [ ] **1.2** Add lint rules/tests for frontend package boundaries: no package
+      imports another package's `src/`, no phantom dependencies, no `feature-*` to
+      `feature-*` imports.
+- [ ] **1.3** Add raw visual value enforcement outside `packages/tokens`: no raw
+      Tailwind colors, arbitrary color values, visual inline styles, `rgb()`,
+      `hsl()`, or `oklch()` in UI code.
+- [ ] **1.4** Make `just check` reliable with the current repo state. Fix missing
+      scripts or stale package metadata rather than weakening checks.
+- [ ] **1.5** Add contract drift coverage for generated TypeScript and docs, and
+      extend the check when C# and Go generation land.
+- [ ] **1.6** Add dependency hygiene checks for banned packages: `xterm.js`,
+      `node-pty`, `@xterm/*`, `reactflow`, and `@xyflow/react`.
+- [ ] **1.7** Ensure local build caches and generated package build outputs stay
+      ignored unless a future ADR explicitly changes that.
 
----
-
-## Phase 4 — The interactive experience prototype (model Phase 1)
-
-Model §16 Phase 1: build the main interface and validate the interaction model with
-**mock execution data**. The stated objective is to validate the central interaction
-model, not to simulate a complete execution platform.
-
-Validate: command editor behaviour · contextual suggestions · subcommand selection ·
-command pills · documentation search · hover documentation and popovers · structured
-transcript rendering · context changes and command-draft behaviour · visual hierarchy
-and responsiveness.
-
-- [x] **4.1** Frontend framework selection — Next.js 16 (per repo constraints; conflict noted in Open decisions remains until reconciled). — **undecided**, see Open decisions. Pick
-      it against the requirements in §9.7, not by assumption.
-- [ ] **4.2** CodeMirror-based command editor with the custom behaviour §4.1
-      describes: free-form editing, subcommand discovery, history, contextual
-      references. It must stay a genuine text editor (§4.1).
-- [ ] **4.3** Command palette and contextual menus (§4.2), command pills (§4.3),
-      documentation search (§4.4), hover popovers (§4.5).
-- [ ] **4.4** Structured transcript renderer consuming `TranscriptBlock` only.
-- [ ] **4.5** Mock execution adapter — a **development fixture**, clearly marked,
-      feeding the real event contract. It is not the product fabricating output:
-      §1 requires real execution, and only §16 Phase 1 sanctions mock data for
-      prototyping. It must be impossible to ship in a production path.
-- [ ] **4.6** Component responsibilities per the §5.4 table.
-
-**Accept:** the nine §16 Phase 1 behaviours demonstrably work against the mock
-adapter, driven through `@lazarus/interaction`.
+Accept: boundary violations are caught by tests/lint, and `just check` is the honest
+local gate described by `AGENTS.md`.
 
 ---
 
-## Phase 5 — One real execution environment (model Phase 3)
+## Next Phase 2 — Contract Completion
 
-Session creation · command execution · streaming stdout and stderr · execution status
-· cancellation · reconnection · runtime expiration · local history restoration.
+The TypeScript contracts exist, but Lazarus is explicitly multi-client and
+multi-language. Finish the contract loop before building transport-heavy features.
 
-A Git-related workflow is the model's suggested end-to-end scenario because it
-exercises command composition, filesystem operations, documentation and real
-execution.
+- [ ] **2.1** Define documentation metadata schema for documents, commands, tasks,
+      references, hover content, and search indexing inputs.
+- [ ] **2.2** Update `docs/experience-reference.md` and `docs/contracts-reference.md`
+      for the documentation metadata shape.
+- [ ] **2.3** Generate C# contract types under `apps/control-plane/src/Lazarus.Contracts`
+      from the same JSON Schemas. Do not hand-edit generated output.
+- [ ] **2.4** Generate Go contract/spec types for `apps/cli` from the same schemas.
+- [ ] **2.5** Add golden tests proving YAML and JSON experience files are the same
+      contract in two encodings.
+- [ ] **2.6** Add negative schema fixtures for privileged runtime fields that must
+      never be expressible: host networking, host mounts, docker socket,
+      privileged mode, added capabilities, and host namespaces.
+- [ ] **2.7** Add schema/docs drift checks for every generated target.
 
-- [ ] **5.1** Choose the isolation technology *by evaluating* §9.3's requirements,
-      which §9.3 and §16 Phase 6 both require before selection.
-- [ ] **5.2** Runtime adapter behind an abstraction (§9.3) — the control plane must
-      not be coupled to one isolation technology.
-- [ ] **5.3** Dedicated execution path / gateway. §9.2: the control plane must not be
-      the hot path for high-volume output streaming.
-- [ ] **5.4** Prepared image + temporary writable session layer (§7.2).
-- [ ] **5.5** Reconnection and expiration, keeping §8.3's three lifecycles distinct.
-
----
-
-## Phase 6 — MDX-driven assistance (model Phase 4)
-
-One documentation source feeding search results, contextual explanations, command
-references, task suggestions, command pills, and full rendering (§6.1, §16 Phase 4).
-
-- [ ] **6.1** Parse and validate MDX at publish time; allow-listed components only;
-      no path from a document to `eval` (ADR-0017, §6.4, §13).
-- [ ] **6.2** Build searchable content and extract command/concept references (§6.1).
-- [ ] **6.3** Drive interaction entities from documentation (§6.3) without letting
-      documentation become an alternate source of runtime permission (§6.2).
+Accept: every contract change regenerates TS, C#, and Go targets plus references in
+one workflow.
 
 ---
 
-## Phase 7 — Creator workflow (model Phase 5)
+## Next Phase 3 — UI Foundations
 
-Environment definitions · dependency preparation · sample projects and data · image
-building and publishing · versioning · interaction configuration · resource policies.
+Build the UI foundation as reusable packages before expanding `apps/web`.
 
----
+- [ ] **3.1** Create `packages/ui` for design-system primitives using only semantic
+      tokens from `@lazarus/tokens`.
+- [ ] **3.2** Create `packages/lib-utils` for tiny shared helpers only when used by
+      more than one package.
+- [ ] **3.3** Create `packages/testing` for shared Vitest/Testing Library setup.
+- [ ] **3.4** Replace visual inline styles in the web scaffold with token-backed UI
+      primitives or scoped composition classes.
+- [ ] **3.5** Add accessible primitives needed by the first workspace: button,
+      icon button, input/editor shell, popover, menu, tabs, transcript block,
+      command pill, search result, and notice.
+- [ ] **3.6** Add responsive layout tests or Playwright screenshots for the main
+      workspace once the first real screen exists.
 
-## Phase 8 — Multi-user and deployment validation (model Phase 6)
-
-Runtime isolation · session concurrency · startup latency · resource usage · output
-streaming · cleanup · authentication · self-hosted requirements · hosted behaviour.
-
-This is where runtime and deployment decisions get made from evidence (§16 Phase 6).
-
----
-
-## Open decisions
-
-`LAZARUS_MODEL.md` §17 says these are not settled and must stay explicit rather than
-being presented as settled architecture. Each is listed here with its current state,
-so it is visible rather than quietly decided.
-
-| Decision | State in the model | State in this repo | Action |
-|---|---|---|---|
-| Frontend framework | not finalised (§9.7, §17) | `AGENTS.md` + docs assert **Next.js 16** | **Conflict.** Decide against §9.7 requirements, then realign the docs. |
-| Runtime / isolation technology | must be evaluated before selection (§9.3, §16 Phase 6) | `AGENTS.md` asserts **rootless podman** | **Conflict.** Same. |
-| Execution gateway boundaries | open (§9.2, §17) | docs put streaming on the .NET control plane | **Conflict.** §9.2 forbids the control plane being the streaming hot path. |
-| Structured output protocol | open (§17) | **Decided** — every branch carries `raw` | Phase 2.2. Closed. |
-| Draft-conflict policy | either is permitted (§5.2) | **Decided** — modified draft wins | Phase 1.5. Recorded in `docs/contracts-reference.md`. |
-| MDX metadata / component schema | open (§6.2, §17) | not started | Phase 2.5. |
-| Creator configuration format | open (§11, §17) | experience schema drafted | Phase 7. |
-| Command suggestion strategy | open (§17) | **Decided** — deterministic, in-package | Phase 1.4. Command *parsing* still open, Phase 4.2. |
-| Local session record | open (§17) | **Decided** — `LocalSession`, browser-side | Phase 2.4. Closed. |
-| Local retention and storage limits | open (§8.5, §17) | record exists; **limits not chosen** | Phase 4.5. |
-| Reconnection replay | open (§8.4, §17) | **Decided** — derived block ids, idempotent replay | Phase 1.1. Expiration still open, Phase 5.5. |
-| Deployment topology | open (§12, §17) | compose files assume a shape | Phase 8. |
-| Desktop application architecture | open (§17) | `apps/desktop` assumed Tauri | After the first product. |
+Accept: `apps/web` composes primitives and feature packages; it does not own product
+logic, styling tokens, or state machines.
 
 ---
 
-## Conflicts to resolve
+## Next Phase 4 — Interactive Documentation Prototype
 
-Three places where the current docs assert something `LAZARUS_MODEL.md` says is
-undecided. They are listed rather than silently reconciled, because resolving them
-means choosing, and choosing is the owner's call.
+This is the first user-facing product validation. It uses mock execution fixtures
+only to feed the real event contract.
 
-1. **`AGENTS.md` §1–§2, `README.md`, `docs/architecture.md` name Next.js 16.**
-   The model says the framework has not been finalised and should be chosen from
-   product requirements (§9.7). Fixing the docs to say "undecided" is the honest
-   move; picking a framework is a decision, not documentation.
-2. **Rootless podman is asserted as the runtime.** §9.3 requires evaluating
-   non-root execution, resource limits, restricted host access, network policy,
-   process isolation and reliable cleanup — and notes a shared-kernel container
-   alone may not satisfy the threat model for public workloads.
-3. **A .NET control plane doing SignalR streaming end to end.** §9.2 wants a
-   dedicated execution path and says the control plane must not become the hot path
-   for high-volume output.
+- [ ] **4.1** Create a feature package for the workspace state and view composition
+      consumed by `apps/web`.
+- [ ] **4.2** Add a command editor based on CodeMirror or make an ADR-level decision
+      if a different editor better satisfies the model. The editor must remain
+      free-form text, not a form-only command builder.
+- [ ] **4.3** Implement command draft history for browser-side sessions without
+      putting history on the server.
+- [ ] **4.4** Implement contextual command suggestions, subcommand discovery, and
+      command pill insertion through `@lazarus/interaction` actions.
+- [ ] **4.5** Implement documentation search over local fixture content.
+- [ ] **4.6** Implement hover documentation and contextual popovers from declared
+      documentation metadata.
+- [ ] **4.7** Implement a structured transcript renderer that consumes
+      `TranscriptBlock` and `RichOutput` only. Presentation must not parse raw
+      process output itself.
+- [ ] **4.8** Add a clearly marked mock execution adapter that emits real
+      `ExecutionEvent` fixtures and is impossible to wire into production.
+- [ ] **4.9** Add Playwright coverage for the prototype journey: read docs, search,
+      insert command, execute fixture, inspect transcript, restore local session.
 
-Also open: model Phase 1 explicitly permits **mock execution data** for prototype
-validation, while §1 forbids simulating output in the product. Phase 4.5 treats this
-as resolvable — a marked development fixture that cannot ship — but the distinction
-should be confirmed rather than assumed.
+Accept: the first workspace demonstrates the model without a real runtime and
+without introducing any product path that fabricates output.
 
 ---
 
-## Explicitly not doing
+## Next Phase 5 — MDX Publish-Time Validation
 
-From `LAZARUS_MODEL.md` §3, and never regardless of phase ordering:
+Creator content is untrusted. Documentation must be validated before it can become
+interactive workspace content.
 
-- A browser terminal emulator with a documentation sidebar
-- A full IDE or browser development environment
-- A long-lived cloud development workspace
-- A generic code playground for arbitrary projects
-- A static documentation generator, or docs that merely embed terminal examples
-- A terminal simulator that fabricates command output
-- A graph/node/flow editor of any kind
-- A PTY
+- [ ] **5.1** Define the allowed MDX component list for documentation, command refs,
+      task refs, callouts, command pills, and structured output examples.
+- [ ] **5.2** Build publish-time MDX parsing and validation. Reject imports, exports,
+      arbitrary expressions, unknown components, and unsafe image/script origins.
+- [ ] **5.3** Extract searchable concepts, command references, task references, and
+      hover content from validated documents.
+- [ ] **5.4** Connect extracted metadata to the documentation metadata schema from
+      Phase 2.
+- [ ] **5.5** Add fixtures proving unsafe creator content is rejected and safe
+      content produces deterministic metadata.
 
-And the future general-purpose desktop terminal (§2.2) is **not** first-product
-scope; the model only requires that its shared interaction model stay reusable.
+Accept: no raw creator MDX is rendered at read time; the web app consumes validated
+metadata and allowed content only.
+
+---
+
+## Next Phase 6 — Control Plane Foundation
+
+Build the backend only after the interaction and content contracts are firm enough
+to avoid speculative infrastructure.
+
+- [ ] **6.1** Create the .NET solution with `Domain`, `Application`, `Contracts`,
+      `Infrastructure`, `EventBus`, `Api`, and `Modules/*` layout from `AGENTS.md`.
+- [ ] **6.2** Add shared kernel primitives only: `Entity`, `AggregateRoot`,
+      `ValueObject`, `DomainEvent`, `IDomainEvent`, `TenantId`, `Result<T>`,
+      `Error`, and `IClock`.
+- [ ] **6.3** Add NetArchTest rules for layer direction, module isolation, no sibling
+      module imports, controller thinness, and the policy chokepoint.
+- [ ] **6.4** Add RFC 9457 `ProblemDetails` middleware and typed options validation.
+- [ ] **6.5** Add EF/Postgres infrastructure only where needed for the first
+      experience/session modules.
+- [ ] **6.6** Add audit primitives for privileged decisions before adding privileged
+      operations.
+
+Accept: architecture tests fail on the forbidden dependencies before any runtime
+adapter is introduced.
+
+---
+
+## Next Phase 7 — Auth Service And Tenant Trust
+
+Identity is separate from the web app and validates locally through JWKS.
+
+- [ ] **7.1** Create `services/auth` with Better Auth, Postgres, organizations, and
+      ES256 JWT issuance.
+- [ ] **7.2** Publish JWKS at the documented route and configure key rotation.
+- [ ] **7.3** Add API key support for CLI and automation clients with scoped claims.
+- [ ] **7.4** Add control-plane JWT validation against JWKS with no per-request auth
+      service network hop.
+- [ ] **7.5** Prove tenant scope comes only from the validated token, never request
+      body, query string, or route params.
+- [ ] **7.6** Add integration tests covering browser session, CLI bearer token, and
+      API key validation.
+
+Accept: every tenant-scoped backend read/write derives tenant id from validated
+identity.
+
+---
+
+## Next Phase 8 — Policy And Runtime Evaluation
+
+Do not pick runtime details by assumption. Evaluate, decide, then implement behind
+policy.
+
+- [ ] **8.1** Write an ADR evaluating rootless podman against the runtime threat
+      model: non-root execution, digest-pinned images, cleanup, cgroups, network
+      egress, filesystem isolation, cancellation, and streaming.
+- [ ] **8.2** Define `PolicyEvaluator` inputs/outputs for image, session start,
+      command exec, filesystem, and network decisions.
+- [ ] **8.3** Add table-driven policy tests for deny-by-default behavior and every
+      allowed capability.
+- [ ] **8.4** Implement a runtime abstraction behind Application ports. No controller
+      or module bypass may reach podman/container APIs directly.
+- [ ] **8.5** Implement prepared image plus temporary writable session layer.
+- [ ] **8.6** Implement command execution as discrete requests with structured
+      events. No PTY and no terminal byte stream.
+- [ ] **8.7** Implement cancellation, bounded concurrency, process timeouts,
+      backpressure, idle timeout, and cleanup.
+- [ ] **8.8** Audit every privileged action: actor, tenant, target, policy decision,
+      and timestamp.
+
+Accept: no container, image, exec, filesystem, or network operation can be reached
+without a policy decision, and tests prove the chokepoint.
+
+---
+
+## Next Phase 9 — Real Execution Integration
+
+Connect the prototype to one real prepared environment after policy and runtime
+boundaries exist.
+
+- [ ] **9.1** Build a small Git-focused experience fixture with docs, metadata,
+      prepared environment, and policy limits.
+- [ ] **9.2** Add session creation and expiration APIs.
+- [ ] **9.3** Stream stdout/stderr/status as `ExecutionEvent`s into the interaction
+      reducer.
+- [ ] **9.4** Add reconnection and replay with idempotent transcript block ids.
+- [ ] **9.5** Restore browser-side `LocalSession` without implying an expired runtime
+      is still alive.
+- [ ] **9.6** Add API/realtime client packages only once the server contracts exist.
+- [ ] **9.7** Add end-to-end tests for session start, command submit, stream, cancel,
+      expire, reconnect, and cleanup.
+
+Accept: a user can run a real command in one isolated Git experience and see only
+real program output represented through structured transcript blocks.
+
+---
+
+## Next Phase 10 — Creator Workflow
+
+Creator tooling comes after the first real experience proves the contracts.
+
+- [ ] **10.1** Validate `lazarus.yaml` and `lazarus.json` with identical semantics.
+- [ ] **10.2** Add local spec validation to the CLI.
+- [ ] **10.3** Add publish/build workflow for prepared images with digest pinning.
+- [ ] **10.4** Add sample projects/data packaging with path containment checks.
+- [ ] **10.5** Add versioning and migration rules for published experiences.
+- [ ] **10.6** Add reference docs and examples for a minimal creator experience.
+
+Accept: a creator can validate and publish one safe, versioned experience without
+manual database or runtime setup.
+
+---
+
+## Next Phase 11 — Self-Hosted Install
+
+The one-command install is part of the product, not ops polish.
+
+- [ ] **11.1** Build `infra/compose/` for Postgres, auth, control plane, web, edge,
+      and local runtime prerequisites.
+- [ ] **11.2** Add `.env.example` with install-time domain, TLS, database, auth, and
+      master-key configuration. No real secrets.
+- [ ] **11.3** Add Caddy/edge templates for wildcard ACME and LAN/self-signed modes.
+- [ ] **11.4** Add health checks and startup ordering that fail honestly.
+- [ ] **11.5** Add backup/restore scripts for self-hosted state.
+- [ ] **11.6** Add CI or local smoke test that brings up the compose stack and checks
+      the UI/API over the configured TLS mode.
+
+Accept: `just dev-up` is a tested reference install, and TLS degrades honestly when
+there is no owned domain.
+
+---
+
+## Explicitly Not Doing
+
+- No PTY, `xterm.js`, `node-pty`, or `@xterm/*`.
+- No browser terminal emulator with documentation beside it.
+- No graph, flow, or node editor.
+- No CI pipeline product surface.
+- No long-lived cloud IDE or public user container ingress.
+- No server-side transcript history database beyond required TTL/session metadata.
+- No fabricated, sampled, inferred, or prettified command output.
+- No external hosted control plane required for self-hosting.
