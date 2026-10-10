@@ -60,21 +60,24 @@ The repository now has enough foundation that stale docs are becoming dangerous.
 Clean the plan and docs before adding more product surface.
 
 - [x] **0.1** Rewrite this TODO around the current Lazarus product and repo state.
-- [ ] **0.2** Update `apps/web/README.md` to remove the old dashboard, CI, endpoint,
+- [x] **0.2** Update `apps/web/README.md` to remove the old dashboard, CI, endpoint,
       and web-terminal plan. Replace it with the interactive documentation
       workspace responsibilities.
-- [ ] **0.3** Update `apps/control-plane/README.md`, `apps/cli/README.md`,
+- [x] **0.3** Update `apps/control-plane/README.md`, `apps/cli/README.md`,
       `services/auth/README.md`, and `infra/README.md` so they match
       `AGENTS.md` and the current phase ordering.
-- [ ] **0.4** Reconcile README version drift: the docs say Next.js 16/.NET 10/Go
-      1.26, while the current web package uses Next 15.5.3 and local tooling may
-      run older Node. Decide whether to upgrade implementation or correct docs.
-- [ ] **0.5** Add a short `docs/architecture.md` or refresh the existing one so the
+- [x] **0.4** Reconcile README version drift: the docs say Next.js 16/.NET 10/Go
+      1.26, while the current implementation uses Next.js 15 and local tooling may
+      run older Node. Decided to correct docs to match current implementation
+      (Next.js 15.5.3 in web; .NET 10, Go 1.26, Node >=22 as per toolchain).
+- [x] **0.5** Add a short `docs/architecture.md` or refresh the existing one so the
       architecture overview, package graph, self-hosting promise, and anti-goals
       are in one maintained document.
-- [ ] **0.6** Decide how built package outputs are handled. Either require local
+- [x] **0.6** Decide how built package outputs are handled. Either require local
       package builds before app builds, or keep source transpilation as the dev
-      path and document why `dist/` remains ignored.
+      path and document why `dist/` remains ignored. (Decision: keep source
+      transpilation in dev; `dist/` remains ignored to avoid committing build
+      artifacts.)
 
 Accept: `TODO.md`, root `README.md`, app/package READMEs, and architecture docs no
 longer contradict the product shape or current implementation.

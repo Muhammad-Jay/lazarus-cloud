@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -14,11 +14,15 @@ function read(p: string): string {
   return readFileSync(p, 'utf8');
 }
 
+function generateTokens(): void {
+  execFileSync(process.execPath, ['tools/codegen/generate-tokens.mjs'], { cwd: root });
+}
+
 describe('token generation drift', () => {
   it('regeneration produces identical committed files', () => {
     const beforeTs = read(tsPath);
     const beforeCss = read(cssPath);
-    execSync('node tools/codegen/generate-tokens.mjs', { cwd: root });
+    generateTokens();
     const afterTs = read(tsPath);
     const afterCss = read(cssPath);
     expect(afterTs).toBe(beforeTs);
@@ -26,10 +30,10 @@ describe('token generation drift', () => {
   });
 
   it('is idempotent (twice produces same output)', () => {
-    execSync('node tools/codegen/generate-tokens.mjs', { cwd: root });
+    generateTokens();
     const t1 = read(tsPath);
     const c1 = read(cssPath);
-    execSync('node tools/codegen/generate-tokens.mjs', { cwd: root });
+    generateTokens();
     const t2 = read(tsPath);
     const c2 = read(cssPath);
     expect(t2).toBe(t1);

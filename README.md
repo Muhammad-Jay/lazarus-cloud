@@ -69,7 +69,7 @@ Requires Docker, [rootless podman](https://podman.io), Node 22, Go 1.26, and the
         ▼                                                       ▼
 ┌───────────────┐                                    ┌────────────────────┐
 │   apps/web    │  session cookie                    │ apps/control-plane │
-│   Next.js 16  │  composition only                  │ .NET 10            │
+│   Next.js 15  │  composition only                  │ .NET 10            │
 └───────┬───────┘                                    │ modular monolith   │
         │                                            └─────────┬──────────┘
         │ consumes                                          │
@@ -100,7 +100,7 @@ than a rewrite.
 
 | Path | What it is |
 |---|---|
-| `apps/web` | Next.js 16. Composition only — all logic is in `packages/` |
+| `apps/web` | Next.js 15. Composition only — all logic is in `packages/` |
 | `apps/desktop` | Tauri shell. No interaction logic |
 | `apps/cli` | The `lazarus` CLI. Go 1.26 |
 | `apps/control-plane` | The engine. .NET 10, modular monolith |

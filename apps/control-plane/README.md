@@ -5,9 +5,8 @@ with hard module boundaries.
 
 ## What belongs here
 
-Everything the platform knows: tenancy, specs, services, releases, deployments,
-endpoints, pipelines, exec sessions, secrets, policy, and the adapters that reach
-podman and the edge proxy.
+Everything the platform knows: tenancy, experiences, documents, sessions,
+command execution, policy, and the adapters that reach podman.
 
 ## Layout
 
@@ -25,19 +24,14 @@ apps/control-plane/
 │   └── Modules/
 │       ├── Tenancy/                 ┐
 │       ├── Identity/                 │
-│       ├── Sources/                  │
-│       ├── Specs/                    │
-│       ├── Services/                 │
-│       ├── Releases/                 │  each module is
-│       ├── Deployments/              │  Domain | Application | Api
-│       ├── Endpoints/                │
-│       ├── Automation/               │
-│       ├── Exec/                     │
+│       ├── Experiences/              │
+│       ├── Documents/                 │
+│       ├── Sessions/                  │
+│       ├── Exec/                     │  each module owns its domain
 │       ├── Policy/                   │
 │       ├── Secrets/                  │
 │       ├── Runtime/                  │  podman adapter
-│       ├── Edge/                     │  Caddy / reverse proxy
-│       └── Observability/            │  logs, metrics, audit
+│       └── Observability/            │
 └── tests/
     ├── Lazarus.Architecture.Tests/  # NetArchTest — boundary enforcement
     ├── Lazarus.EventBus.Tests/
@@ -53,13 +47,14 @@ apps/control-plane/
   in `Lazarus.Application` or a domain event on the bus (§4.2).
 - Controllers translate HTTP to one Application call. No business logic, no EF
   (§4.3).
-- No container, image, port, exec, volume, or network operation runs without a
+- No container, image, exec, filesystem, or network operation runs without a
   `PolicyEvaluator` decision (§4.5). This is enforced by an architecture test, not
   by review.
+- The interaction model lives in `packages/interaction`, not here (§4.8).
 
 ## Status
 
-Not created yet. Lands in Phase 3 of `TODO.md`.
+Not created yet. Lands in Phase 6 of `TODO.md`.
 
 ## Local run
 
@@ -67,4 +62,4 @@ Not created yet. Lands in Phase 3 of `TODO.md`.
 dotnet run --project src/Lazarus.Api
 ```
 
-Requires Postgres. `just dev-up` brings up the full stack (Phase 20).
+Requires Postgres. `just dev-up` brings up the full stack.
