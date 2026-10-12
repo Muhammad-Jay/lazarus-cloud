@@ -1,0 +1,11 @@
+{
+  "apiVersion": "lazarus.dev/v1",
+  "title": "Fixture",
+  "environment": {
+    "image": "docker.io/library/debian@sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "resources": {
+      "memoryMb": 512,
+      "cpus": 1
+    }
+  }
+}

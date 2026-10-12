@@ -1,0 +1,290 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lazarus.dev/schemas/experience/v1",
+  "title": "Lazarus experience",
+  "description": "An experience is what a creator publishes: documentation, a prepared software environment, and the metadata needed to use it. It is authored as lazarus.yaml or lazarus.json, which are the same schema in two encodings (ADR-0016).\n\nThis schema is also a security boundary. It has no field for privileged mode, host mounts, host networking, docker.sock, added capabilities, or host namespaces. They are not disabled by default; they are unexpressible, so no request can ask for them (ADR-0015). Adding one is a security change and requires an ADR.",
+  "type": "object",
+  "required": ["apiVersion", "title", "environment"],
+  "additionalProperties": false,
+  "properties": {
+    "apiVersion": {
+      "description": "Schema version this experience was written against. Breaking schema changes require a new value here.",
+      "type": "string",
+      "pattern": "^lazarus\\.dev/v[0-9]+$",
+      "examples": ["lazarus.dev/v1"]
+    },
+    "title": {
+      "description": "Short human title for the experience. Shown in the header and in a list of experiences.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "description": {
+      "description": "One or two sentences describing what a reader will learn. Plain text; no markup.",
+      "type": "string",
+      "maxLength": 500
+    },
+    "tags": {
+      "description": "Free-form topical labels. Discovery only, never used for authorisation or policy.",
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 40 },
+      "maxItems": 16
+    },
+    "environment": { "$ref": "#/$defs/environment" },
+    "documentation": {
+      "description": "The documents a reader works through, in order. Each is validated at publish time against the component allow-list (ADR-0017).",
+      "type": "array",
+      "items": { "$ref": "#/$defs/document" },
+      "minItems": 1,
+      "maxItems": 200
+    },
+    "commands": {
+      "description": "Commands this experience documents. Declaring a command makes it discoverable and gives it a narrower policy evaluation. It never grants permission to run it: policy adjudicates every command at runtime, declared or not (ADR-0015).",
+      "type": "array",
+      "items": { "$ref": "#/$defs/command" },
+      "maxItems": 500
+    },
+    "tasks": {
+      "description": "Multi-step exercises. A task lists command references rather than raw command text, so the environment and docs stay the single source of truth.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/task" },
+      "maxItems": 200
+    },
+    "secrets": {
+      "description": "Secrets this experience needs. An experience names a secret; it never carries one. Values are supplied out of band by an operator, encrypted at rest, redacted in every log and error, and never returned by any API.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/secretRef" },
+      "maxItems": 50
+    },
+    "policies": {
+      "description": "Tightening only. A policy entry can narrow what an experience may do; it can never widen it, and it cannot grant a capability policy would otherwise deny (ADR-0015).",
+      "type": "array",
+      "items": { "$ref": "#/$defs/policyTightening" },
+      "maxItems": 50
+    }
+  },
+  "$defs": {
+    "imageDigest": {
+      "description": "A content-addressed container image reference. A tag is not an identity, so a digest is required and a tag alone is invalid.",
+      "type": "string",
+      "pattern": "^[^\\s@]+@sha256:[0-9a-f]{64}$",
+      "examples": ["docker.io/library/git@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"]
+    },
+    "portNumber": {
+      "description": "A TCP port, 1-65535. A value object rather than a bare integer, because the range is an invariant.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65535
+    },
+    "environment": {
+      "description": "The prepared software environment a session runs against.",
+      "type": "object",
+      "required": ["image"],
+      "additionalProperties": false,
+      "properties": {
+        "image": { "$ref": "#/$defs/imageDigest" },
+        "workdir": {
+          "description": "Working directory inside the session layer. Relative paths only; '..' and absolute paths are rejected at validation, so a path containment check cannot be skipped by a manifest.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "not": { "pattern": "^/|(^|/)\\.\\.(/|$)" }
+        },
+        "env": {
+          "description": "Non-secret environment variables. Secret values are never expressible here; use secrets[] by reference.",
+          "type": "object",
+          "propertyNames": { "pattern": "^[A-Z_][A-Z0-9_]*$" },
+          "additionalProperties": { "type": "string", "maxLength": 2048 },
+          "maxProperties": 64
+        },
+        "resources": { "$ref": "#/$defs/resources" },
+        "network": {
+          "description": "Egress policy. A session has no ingress route at all (ADR-0012), so only egress is expressible.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "egress": {
+              "description": "Permitted outbound destinations. Absent means deny all outbound.",
+              "type": "array",
+              "items": { "type": "string", "minLength": 1, "maxLength": 253 },
+              "maxItems": 50
+            },
+            "dns": {
+              "description": "Permitted DNS resolvers. Absent means the platform default.",
+              "type": "array",
+              "items": { "type": "string", "minLength": 1, "maxLength": 253 },
+              "maxItems": 4
+            }
+          }
+        }
+      }
+    },
+    "resources": {
+      "description": "Upper bounds for a session's container. Every field is required when the object is present, because an omitted bound would silently mean 'unbounded' and deny-by-default has no way to tell that apart from an intent.",
+      "type": "object",
+      "required": ["memoryMb", "cpus", "pids"],
+      "additionalProperties": false,
+      "properties": {
+        "memoryMb": { "type": "integer", "minimum": 64, "maximum": 8192 },
+        "cpus": { "type": "number", "minimum": 0.1, "maximum": 8 },
+        "pids": { "type": "integer", "minimum": 16, "maximum": 4096 },
+        "timeoutSeconds": { "type": "integer", "minimum": 5, "maximum": 3600 }
+      }
+    },
+    "document": {
+      "description": "One document in the reading order.",
+      "type": "object",
+      "required": ["id", "title"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "Stable identifier referenced by commands and tasks. Unique within the experience.",
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "maxLength": 64
+        },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "summary": { "type": "string", "maxLength": 300 },
+        "mdx": {
+          "description": "The document body, authored as a restricted MDX subset: prose, headings, code, and allow-listed components with typed string and number props. Creator import, export, expressions, and arbitrary JSX are not supported, so there is no path from a document to eval (ADR-0017). Validated at publish time; a document that fails is never published.",
+          "type": "string",
+          "maxLength": 262144
+        }
+      }
+    },
+    "command": {
+      "description": "A command the experience documents. The command is a list of arguments, never a shell string: there is no shell in the product to inject into (ADR-0013).",
+      "type": "object",
+      "required": ["id", "executable", "summary"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "Stable identifier. Unique within the experience.",
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "maxLength": 64
+        },
+        "executable": {
+          "description": "The program to run. An absolute path or a bare name resolved against the image's PATH by the runtime.",
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._/-]+$",
+          "maxLength": 256
+        },
+        "args": {
+          "description": "Default arguments. A reader may change them; these are the values that populate the draft.",
+          "type": "array",
+          "items": { "type": "string", "maxLength": 4096 },
+          "maxItems": 128
+        },
+        "summary": {
+          "description": "One line saying what the command does. Shown on hover.",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "description": {
+          "description": "Longer explanation, as plain text.",
+          "type": "string",
+          "maxLength": 4000
+        },
+        "documentId": {
+          "description": "The document this command is explained in, if any.",
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "maxLength": 64
+        },
+        "expectsOutput": {
+          "description": "Whether the command is expected to print to stdout. Used for documentation quality, never for policy.",
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "task": {
+      "description": "An ordered set of steps accomplishing one goal.",
+      "type": "object",
+      "required": ["id", "title", "steps"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "maxLength": 64
+        },
+        "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "summary": { "type": "string", "maxLength": 300 },
+        "steps": {
+          "description": "Command ids in order. Each must resolve to a command in this experience.",
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$", "maxLength": 64 },
+          "minItems": 1,
+          "maxItems": 50
+        },
+        "documentId": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$", "maxLength": 64 }
+      }
+    },
+    "secretRef": {
+      "description": "A reference to a secret by name. Never a value.",
+      "type": "object",
+      "required": ["name", "envVar"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "description": "Logical name, unique within the experience.",
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "maxLength": 64
+        },
+        "envVar": {
+          "description": "Environment variable the value is exposed as inside the session.",
+          "type": "string",
+          "pattern": "^[A-Z_][A-Z0-9_]*$",
+          "maxLength": 64
+        },
+        "required": {
+          "description": "Whether the session fails to start when the value is absent.",
+          "type": "boolean",
+          "default": true
+        }
+      }
+    },
+    "policyTightening": {
+      "description": "A restriction an experience may impose on itself. Tightening only. There is deliberately no field here that widens a capability, because a creator-supplied widening would be an untrusted input granting privilege.",
+      "type": "object",
+      "required": ["id", "effect"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+          "maxLength": 64
+        },
+        "effect": {
+          "description": "The restriction this entry applies. Deny is the only permitted value: an allow here would be a capability grant.",
+          "const": "deny",
+          "examples": ["deny"]
+        },
+        "reason": { "type": "string", "maxLength": 500 },
+        "match": {
+          "description": "What the restriction applies to.",
+          "type": "object",
+          "required": ["kind"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": {
+              "description": "A discriminated union rather than an optional flag, so a reader cannot be unsure which shape applies.",
+              "type": "string",
+              "enum": ["executable", "networkDestination", "filesystemPath"]
+            },
+            "value": {
+              "description": "The literal to match, interpreted according to kind. A leading '*' matches a prefix.",
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          }
+        }
+      }
+    }
+  }
+}

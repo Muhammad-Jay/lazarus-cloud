@@ -1,6 +1,12 @@
 # 0006 — Subdomain routing with wildcard TLS
 
-**Status:** Accepted
+> **Superseded.** Sessions are no longer published and there is no
+> subdomain-per-deployment routing. See
+> [0012 — Sessions are not published](./0012-sessions-are-not-published.md).
+> This record is kept for the reasoning that led to wildcard routing, which
+> was correct for the previous product.
+
+**Status:** Superseded by [0012](./0012-sessions-are-not-published.md)
 **Date:** 2026-10-02
 
 ## Context

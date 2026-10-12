@@ -1,6 +1,11 @@
 # 0007 — The spec schema is the sole contract
 
-**Status:** Accepted
+> **Superseded.** The discipline of one authoritative schema and generated
+> types is unchanged; the *number* of schemas is now three (experience,
+> interaction, session). See
+> [0016 — Three versioned schemas](./0016-three-versioned-schemas.md).
+
+**Status:** Superseded by [0016](./0016-three-versioned-schemas.md)
 **Date:** 2026-10-02
 
 ## Context

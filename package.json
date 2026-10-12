@@ -2,7 +2,7 @@
   "name": "lazarus",
   "version": "0.0.0",
   "private": true,
-  "description": "Lazarus — a self-hostable container automation platform.",
+  "description": "Lazarus \u2014 interactive documentation and software execution.",
   "license": "MIT",
   "packageManager": "pnpm@10.29.3",
   "engines": {
@@ -15,8 +15,12 @@
     "test": "just test",
     "build": "just build",
     "check": "just check",
-    "format": "just fmt"
+    "format": "just fmt",
+    "codegen": "node tools/codegen/generate-types.mjs && node tools/codegen/generate-tokens.mjs"
   },
   "dependencies": {},
-  "devDependencies": {}
+  "devDependencies": {
+    "json-schema-to-typescript": "catalog:"
+  },
+  "type": "module"
 }

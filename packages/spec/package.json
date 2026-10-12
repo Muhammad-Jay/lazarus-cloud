@@ -1,0 +1,28 @@
+{
+  "name": "@lazarus/spec",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The experience contract: lazarus.schema.json and its generated types.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./experience": "./src/generated/experience.ts",
+    "./schema": "./lazarus.schema.json"
+  },
+  "files": [
+    "lazarus.schema.json",
+    "src"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "ajv": "catalog:",
+    "ajv-formats": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}

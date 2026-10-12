@@ -1,0 +1,5 @@
+# filename|keyword|instancePath|missingProperty|reason
+with-tenant-id.json|additionalProperties|/|-|The browser-side record carries no tenancy. Local history, the runtime session and server-side coordination metadata have separate lifecycles and must not be conflated (LAZARUS_MODEL.md §8.3). A tenant in local storage would also mean a reader's history could be attributed from browser data alone.
+with-secret-value.json|additionalProperties|/|-|Credentials must not be placed in browser storage for convenience (§8.1). An experience names a secret by reference; a local record has no business holding one either.
+missing-schema-version.json|required|/|schemaVersion|The model calls out schema migrations as something this record must account for (§8.2), so the version is an explicit required field rather than something inferred from which other keys are present.
+unknown-runtime-state.json|enum|/runtimeSession/state|-|A restored transcript must not imply the old runtime is still active (§8.4), and restoration cannot invent a state the server descriptor would not recognise. The honest value after a long-closed tab is `unknown`.

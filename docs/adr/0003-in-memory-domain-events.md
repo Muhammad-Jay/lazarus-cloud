@@ -1,5 +1,11 @@
 # 0003 — In-memory domain events
 
+> **Note.** This decision stands, and its escape hatch is now load-bearing:
+> execution lifecycle events are designated transitions that must not be lost,
+> so they use the durable outbox rather than at-most-once in-memory dispatch.
+> See
+> [0013 — Discrete command executions](./0013-discrete-executions-no-pty.md).
+
 **Status:** Accepted
 **Date:** 2026-10-02
 

@@ -1,0 +1,7 @@
+{
+  "apiVersion": "lazarus.dev/v1",
+  "title": "Fixture",
+  "environment": {
+    "image": "docker.io/library/debian:latest"
+  }
+}

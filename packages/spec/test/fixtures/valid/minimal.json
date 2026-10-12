@@ -1,0 +1,7 @@
+{
+  "apiVersion": "lazarus.dev/v1",
+  "title": "Reading a repository with git",
+  "environment": {
+    "image": "docker.io/library/git@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+  }
+}

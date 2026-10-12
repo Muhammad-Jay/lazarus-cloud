@@ -1,0 +1,17 @@
+# Invalid session fixtures, and exactly why each must be rejected.
+#
+# One `filename|keyword|instancePath|missingProperty|reason` per line, with `-`
+# for missingProperty when the keyword is not `required`. The test asserts the
+# fixture fails with that keyword at that path (and, for `required`, that that
+# exact property is the absent one). Adding a fixture means adding a line here.
+
+absolute-hub-url.json|pattern|/hubUrl|-|an absolute endpoint would be a hardcoded host; the base address is operator configuration
+carries-command-text.json|additionalProperties|/|-|the server never holds command text; history is browser-side (ADR-0019)
+carries-transcript.json|additionalProperties|/|-|the server never holds a transcript; nothing in the product queries it server-side (ADR-0019)
+duration-below-floor.json|minimum|/limits/maxDurationSeconds|-|a session shorter than the floor must be refused, not admitted and reaped
+missing-tenant.json|required|/descriptor|tenantId|tenant scope comes from the validated token and must never be optional
+protocol-relative-hub-url.json|pattern|/hubUrl|-|a protocol-relative URL is an open redirect to another host
+short-ticket.json|minLength|/ticket/ticket|-|a short ticket is a guessable credential, which would be an authentication bypass
+tag-instead-of-digest.json|pattern|/descriptor/environmentImage|-|a tag is not an identity; the resolved image must be digest-pinned
+unknown-session-state.json|enum|/descriptor/state|-|clients switch exhaustively on state, so an unknown state is a compile error, not a runtime surprise
+version-zero.json|minimum|/descriptor/experienceVersion|-|experience versions start at 1; zero is not a version

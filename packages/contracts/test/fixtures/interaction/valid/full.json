@@ -1,0 +1,382 @@
+{
+  "context": {
+    "experienceId": "11111111-1111-4111-8111-111111111111",
+    "experienceVersion": 3,
+    "documentId": "push-a-branch",
+    "sessionId": "22222222-2222-4222-8222-222222222222",
+    "workingDirectory": "/workspace/repo",
+    "taskId": "task-push"
+  },
+  "draft": {
+    "executable": "git",
+    "arguments": [
+      {
+        "value": "push",
+        "quoted": false
+      },
+      {
+        "value": "--set-upstream",
+        "quoted": false
+      }
+    ],
+    "sourceCommandId": "git-push",
+    "modified": true
+  },
+  "suggestions": {
+    "items": [
+      {
+        "kind": "documentedCommand",
+        "label": "git push",
+        "draft": {
+          "executable": "git",
+          "arguments": [
+            {
+              "value": "push"
+            }
+          ]
+        },
+        "score": 0.98,
+        "detail": "Push the current branch",
+        "doc": {
+          "documentId": "push-a-branch",
+          "title": "Pushing a branch",
+          "summary": "Create a branch and publish it to the remote.",
+          "relatedCommandIds": [
+            "git-push"
+          ]
+        }
+      },
+      {
+        "kind": "executableName",
+        "label": "git",
+        "score": 0.6
+      },
+      {
+        "kind": "taskStep",
+        "label": "Create the branch first",
+        "score": 0.4
+      },
+      {
+        "kind": "historyEntry",
+        "label": "git status",
+        "draft": {
+          "executable": "git",
+          "arguments": [
+            {
+              "value": "status"
+            }
+          ]
+        },
+        "score": 0.2
+      }
+    ],
+    "rankedAt": "2026-10-04T12:00:00.000Z"
+  },
+  "actions": {
+    "items": [
+      {
+        "id": "44444444-4444-4444-8444-444444444444",
+        "kind": "openDocument",
+        "label": "Read: pushing a branch",
+        "doc": {
+          "documentId": "push-a-branch",
+          "title": "Pushing a branch",
+          "anchor": "remote",
+          "summary": "Create a branch and publish it to the remote.",
+          "relatedCommandIds": [
+            "git-push",
+            "git-push-set-upstream"
+          ]
+        }
+      },
+      {
+        "id": "44444444-4444-4444-8444-444444444444",
+        "kind": "startTask",
+        "label": "Follow: publish this branch",
+        "taskId": "task-push"
+      },
+      {
+        "id": "44444444-4444-4444-8444-444444444444",
+        "kind": "reuseCommand",
+        "label": "Run it again"
+      },
+      {
+        "id": "44444444-4444-4444-8444-444444444444",
+        "kind": "clearTranscript",
+        "label": "Clear transcript"
+      },
+      {
+        "id": "44444444-4444-4444-8444-444444444444",
+        "kind": "cancelExecution",
+        "label": "Cancel",
+        "executionId": "33333333-3333-4333-8333-333333333333"
+      },
+      {
+        "id": "44444444-4444-4444-8444-444444444444",
+        "kind": "endSession",
+        "label": "End session"
+      }
+    ]
+  },
+  "blocks": {
+    "blocks": [
+      {
+        "kind": "command",
+        "id": "44444444-4444-4444-8444-444444444444",
+        "executionId": "33333333-3333-4333-8333-333333333333",
+        "command": {
+          "executable": "git",
+          "arguments": [
+            {
+              "value": "status"
+            }
+          ]
+        },
+        "at": "2026-10-04T12:00:00.000Z"
+      },
+      {
+        "kind": "output",
+        "id": "44444444-4444-4444-8444-444444444444",
+        "executionId": "33333333-3333-4333-8333-333333333333",
+        "sequence": 0,
+        "output": {
+          "spans": [
+            {
+              "text": "On branch main",
+              "style": {
+                "color": "stdout"
+              }
+            },
+            {
+              "text": "nothing to commit",
+              "style": {
+                "color": "muted",
+                "dim": true
+              }
+            }
+          ],
+          "truncated": false,
+          "byteCount": 38
+        },
+        "at": "2026-10-04T12:00:00.000Z"
+      },
+      {
+        "kind": "output",
+        "id": "55555555-5555-4555-8555-555555555555",
+        "executionId": "33333333-3333-4333-8333-333333333333",
+        "sequence": 1,
+        "output": {
+          "spans": [
+            {
+              "text": "remote: origin"
+            }
+          ],
+          "structured": {
+            "kind": "section",
+            "raw": "remote: origin\n  push refspec configured\n",
+            "label": "Remote configuration",
+            "expandedByDefault": false,
+            "content": [
+              {
+                "kind": "text",
+                "value": "Set the upstream with "
+              },
+              {
+                "kind": "code",
+                "value": "git push --set-upstream origin main",
+                "language": "bash"
+              },
+              {
+                "kind": "text",
+                "value": " \u2014 see "
+              },
+              {
+                "kind": "documentationRef",
+                "doc": {
+                  "documentId": "push-a-branch",
+                  "title": "Pushing a branch",
+                  "summary": "Create a branch and publish it to the remote.",
+                  "relatedCommandIds": [
+                    "git-push"
+                  ]
+                }
+              },
+              {
+                "kind": "text",
+                "value": " for the full workflow."
+              },
+              {
+                "kind": "pill",
+                "pill": {
+                  "label": "git push -u origin main",
+                  "draft": {
+                    "executable": "git",
+                    "arguments": [
+                      {
+                        "value": "push"
+                      },
+                      {
+                        "value": "-u"
+                      },
+                      {
+                        "value": "origin"
+                      },
+                      {
+                        "value": "main"
+                      }
+                    ],
+                    "sourceCommandId": "git-push"
+                  },
+                  "doc": {
+                    "documentId": "push-a-branch",
+                    "title": "Pushing a branch",
+                    "summary": "Create a branch and publish it to the remote.",
+                    "relatedCommandIds": [
+                      "git-push"
+                    ]
+                  },
+                  "prepared": true
+                }
+              },
+              {
+                "kind": "control",
+                "label": "Re-run this check",
+                "actionIds": [
+                  "44444444-4444-4444-8444-444444444444"
+                ],
+                "value": null
+              }
+            ]
+          },
+          "byteCount": 38
+        },
+        "at": "2026-10-04T12:00:00.000Z"
+      },
+      {
+        "kind": "output",
+        "id": "66666666-6666-4666-8666-666666666666",
+        "executionId": "33333333-3333-4333-8333-333333333333",
+        "sequence": 2,
+        "output": {
+          "spans": [
+            {
+              "text": "{\"branch\":\"main\"}"
+            }
+          ],
+          "structured": {
+            "kind": "data",
+            "raw": "{\"branch\":\"main\"}",
+            "dataType": "git.branch",
+            "data": {
+              "branch": "main"
+            }
+          },
+          "byteCount": 17
+        },
+        "at": "2026-10-04T12:00:00.000Z"
+      },
+      {
+        "kind": "result",
+        "id": "44444444-4444-4444-8444-444444444444",
+        "executionId": "33333333-3333-4333-8333-333333333333",
+        "exitCode": 0,
+        "durationMs": 42,
+        "at": "2026-10-04T12:00:00.000Z"
+      },
+      {
+        "kind": "notice",
+        "id": "44444444-4444-4444-8444-444444444444",
+        "level": "info",
+        "message": "Session ready",
+        "at": "2026-10-04T12:00:00.000Z"
+      },
+      {
+        "kind": "policyDenied",
+        "id": "44444444-4444-4444-8444-444444444444",
+        "executionId": "33333333-3333-4333-8333-333333333333",
+        "decision": {
+          "outcome": "denied",
+          "code": "network_egress_denied",
+          "message": "Network egress is not permitted for this experience.",
+          "evaluatedAt": "2026-10-04T12:00:00.000Z"
+        },
+        "at": "2026-10-04T12:00:00.000Z"
+      },
+      {
+        "kind": "documentation",
+        "id": "44444444-4444-4444-8444-444444444444",
+        "ref": {
+          "documentId": "push-a-branch",
+          "title": "Pushing a branch",
+          "anchor": "remote"
+        },
+        "at": "2026-10-04T12:00:00.000Z"
+      }
+    ]
+  },
+  "draftConflict": {
+    "draft": {
+      "executable": "git",
+      "arguments": [
+        {
+          "value": "push"
+        }
+      ]
+    },
+    "context": {
+      "experienceId": "11111111-1111-4111-8111-111111111111",
+      "experienceVersion": 3,
+      "documentId": "push-a-branch"
+    },
+    "raisedAt": "2026-10-04T12:00:00.000Z"
+  },
+  "search": {
+    "query": "push to the remote",
+    "results": [
+      {
+        "kind": "document",
+        "ref": {
+          "documentId": "push-a-branch",
+          "title": "Pushing a branch",
+          "anchor": "remote",
+          "summary": "Create a branch and publish it to the remote.",
+          "relatedCommandIds": [
+            "git-push",
+            "git-push-set-upstream"
+          ]
+        },
+        "score": 0.94,
+        "excerpt": "Push a branch and set its upstream."
+      },
+      {
+        "kind": "task",
+        "ref": {
+          "documentId": "publish-branch",
+          "title": "Publish a branch"
+        },
+        "taskId": "task-push",
+        "score": 0.88
+      },
+      {
+        "kind": "command",
+        "ref": {
+          "documentId": "push-a-branch",
+          "title": "Pushing a branch",
+          "relatedCommandIds": [
+            "git-push"
+          ]
+        },
+        "commandId": "git-push",
+        "score": 0.81
+      },
+      {
+        "kind": "concept",
+        "ref": {
+          "documentId": "remote",
+          "title": "Remotes"
+        },
+        "score": 0.5
+      }
+    ]
+  }
+}

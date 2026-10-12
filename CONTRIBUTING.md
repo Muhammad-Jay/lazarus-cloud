@@ -31,8 +31,12 @@ just install
 cp .env.example .env      # then fill in BETTER_AUTH_SECRET and LAZARUS_MASTER_KEY
 ```
 
-Rootless podman matters. Lazarus runs containers as your user with dropped
+Rootless podman matters, and it is not optional. Lazarus runs every command a
+user types as a real process in a container, as your user, with dropped
 capabilities. Running it as root defeats the sandbox the platform depends on.
+Docker and rootless podman are both prerequisites for running sessions locally,
+and there is no mode in which a session runs without a container runtime behind
+`PolicyEvaluator`.
 
 ## Everyday commands
 
@@ -52,17 +56,53 @@ cause — never weaken a check to get green (`AGENTS.md` §12.6).
 `just secrets` prints `SKIPPED` when gitleaks is not installed locally. That is
 not a pass: CI runs the scan unconditionally, so a green CI run is authoritative.
 
+### `just codegen`
+
+A schema change **requires** regeneration, and the regenerated output is
+committed. One change, every target:
+
+```sh
+just codegen && just check
+```
+
+Targets are `packages/contracts/src/generated` (TypeScript),
+`Lazarus.Contracts` (C#), and the Go spec types in `apps/cli`. If you edit
+`packages/spec/lazarus.schema.json` or either
+`packages/contracts/src/schema/*.json` and do not commit the regenerated
+output, `contract-drift` CI fails. So does a schema change that ships without
+its reference-doc update (`docs/experience-reference.md` or
+`docs/contracts-reference.md`) (`AGENTS.md` §4.6).
+
+A hand-edit to generated code is lost on the next run. Fix the generator
+instead, and never edit a generated file to make a check pass.
+
 ## Working on an item
 
 Work is tracked in [`TODO.md`](./TODO.md). Items are numbered `<phase>.<seq>`,
-for example `7.8`. Pick the lowest open item whose dependencies are satisfied.
+for example `11.5`. The plan was rephased on 2026-10-04 to match the new
+product, so an item number from an older checkout means nothing: read the phase
+heading, not just the number.
+
+Phases are ordered so that **any prefix is shippable**. Do not start a phase
+before its dependencies are green, and do not jump ahead because something
+looks easier — the ordering is what makes each phase reviewable on its own.
+
+Pick the lowest open item whose dependencies are satisfied. One item, one PR.
+
+**Phase 11 (Policy) blocks phases 12, 14, and 15.** Do not let container or
+exec code land before it. If a runtime or execution path can be reached without
+a `PolicyEvaluator` decision, the architecture test fails, and that ordering is
+a security property rather than a convenience.
+
+Phase 6 (the interaction core) blocks 20, 21, and 23 in the same way: every
+client consumes it, so building a client first means building it twice.
 
 Branch names carry the phase:
 
 ```
-feat/p07-policy-chokepoint
-fix/p09-rollback-retry
-docs/p02-spec-reference
+feat/p11-policy-deny-matrix
+fix/p15-exec-event-backpressure
+docs/p02-experience-reference
 ```
 
 Before you start, read:
@@ -82,6 +122,8 @@ The full checklist is `AGENTS.md` §13. The short version:
 - No new hardcoded URL, port, hostname, ID, email, or path
 - Tenant scoping comes from the token, and the query filters by it
 - Any container/process/network path goes through `PolicyEvaluator`
+- **Interaction logic lives in `packages/interaction`, not in a client**
+- **Every visual value comes from a semantic token in `packages/tokens`**
 - Generated code regenerated and committed if its source changed
 - A boundary move updates `docs/modules/<name>.md` in the same PR
 - No secrets in the diff
@@ -91,11 +133,11 @@ The full checklist is `AGENTS.md` §13. The short version:
 [Conventional Commits](https://www.conventionalcommits.org/):
 
 ```
-feat: add policy decision for image allowlist
-fix(deployments): do not reject on already-healthy container
-docs: record ADR-0012 on outbox durability
+feat: add policy decision for the image allowlist
+fix(transcript): drop the block when an event arrives twice
+docs: record ADR-0012 on sessions not being published
 refactor(spec): extract shared port value object
-test(policy): cover the deny matrix for unbound resources
+test(policy): cover the deny matrix for unbounded resources
 chore(deps): bump golang.org/x/net
 ```
 
@@ -120,19 +162,36 @@ required.
 
 ## Three rules people get wrong
 
-**1. Do not hand-edit generated code.** Anything in `packages/contracts`, the
-generated spec types, and the Go spec types is produced by `just codegen`. Your
-edit is lost on the next run. Fix the generator.
+Each of these has been got wrong in this repository already. None of them fails
+loudly: the lint passes, the build passes, and the defect surfaces later as a
+divergence nobody can explain.
 
-**2. Do not bypass Policy.** If you are reaching podman without a
-`PolicyEvaluator` decision, the build fails on an architecture test. This is not
-a test to route around — it is the security boundary (`AGENTS.md` §4.5). If
-Policy genuinely lacks a capability you need, extend Policy, with a table-driven
-test.
+**1. Do not reimplement the interaction model in a client.**
+`packages/interaction` is framework-free, imports only `@lazarus/contracts`, and
+owns the state shape, the reducer, transcript normalisation, execution-event
+application, suggestion ranking, draft-conflict resolution, and block ordering.
+`apps/web`, `apps/cli`, and `apps/desktop` all drive the same transitions — that
+is the point (`ADR-0014`). If a component needs to decide what happens next,
+that is a missing transition in the reducer, not a missing `useEffect`. Two
+reducers that start identical diverge within a release, and the divergence is
+invisible because both look right in review.
 
-**3. Do not disable a check.** Not lint, not a test, not a type error, not a
-build flag. Every one of those checks exists because something it caught was a
-real defect. If CI is wrong, fix CI in its own PR.
+**2. Do not hand a component a colour.** Semantic tokens in `packages/tokens`
+are the only public visual surface, and lint fails on `bg-red-500`,
+`bg-[#0f172a]`, `rgb()`, `hsl()`, `oklch()`, and an inline `style={{}}` carrying
+a visual property (`ADR-0018`). The correct path is: add the value to
+`packages/tokens`, regenerate, and reference the semantic name. Note that a
+component written against a raw value also breaks dark mode, which swaps tokens
+and adds no component-level `dark:` variants.
+
+**3. Do not treat a declared command as an allowed command.** A user may type
+anything, and so may an AI agent acting for one, so `PolicyEvaluator`
+adjudicates *every* execution at runtime — a declared command gets a narrower
+evaluation, never a bypass (`ADR-0015`). Hiding a command in the UI, or leaving
+it out of the experience, is a **discovery** decision. If it must not run,
+Policy says so, and nothing else can grant it: no spec field, no request
+payload, and no operator flag. If Policy genuinely lacks a capability you need,
+extend Policy, with a table-driven test over the decision matrix.
 
 ## Reporting security issues
 

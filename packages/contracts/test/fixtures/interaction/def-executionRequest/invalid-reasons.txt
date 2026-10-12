@@ -1,0 +1,2 @@
+# filename|keyword|instancePath|missingProperty|reason
+shell-metacharacters.json|pattern|/executable|-|A command is a program plus arguments, never a shell string, so there is nothing for a metacharacter to inject into (ADR-0013). The same pattern the experience contract requires of a documented command.

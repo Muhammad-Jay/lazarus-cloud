@@ -36,10 +36,15 @@ install:
     @go work sync 2>/dev/null || echo "go: skipped"
     @if [ -n "{{ cp }}" ]; then dotnet restore "{{ cp }}"; else echo "dotnet: skipped (no solution yet)"; fi
 
-# Generate code from the contracts (spec schema, OpenAPI, hub manifest)
+# Generate code from the contracts. The schemas are the source of truth, so this
+# only ever writes under `src/generated/`; hand edits there cannot survive.
+#
+# Only TypeScript is generated today. The C# and Go targets required by
+# `AGENTS.md` §4.6 are not built yet, so they are not faked here.
 codegen:
-    @if [ -f packages/spec/package.json ]; then pnpm --filter @lazarus/spec codegen; else echo "spec: skipped (Phase 2)"; fi
-    @if [ -f tools/codegen/package.json ]; then (cd tools/codegen && pnpm install && pnpm codegen); else echo "client: skipped (Phase 16)"; fi
+    @pnpm codegen
+    @echo "dotnet: skipped (no C# contract generation yet)"
+    @echo "go: skipped (no Go contract generation yet)"
 
 # ── Verification ───────────────────────────────────────────────────────────
 

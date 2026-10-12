@@ -1,0 +1,25 @@
+{
+  "name": "@lazarus/tokens",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The single source of every colour, spacing, radius, shadow and motion value. Leaf package: no dependencies.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./css": "./src/generated/tokens.css",
+    "./tokens.json": "./src/tokens.json"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}
