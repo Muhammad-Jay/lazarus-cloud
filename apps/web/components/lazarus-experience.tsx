@@ -1,9 +1,10 @@
 'use client';
 
-import type { ReactElement } from 'react';
-import { useReducer } from 'react';
 import { initialState, interactionReducer } from '@lazarus/interaction';
+import { useReducer } from 'react';
+
 import type { RichOutput, TranscriptBlock, WorkspaceContext } from '@lazarus/contracts';
+import type { ReactElement } from 'react';
 
 function renderRichOutput(output: RichOutput): string {
   const parts: string[] = [];
@@ -17,14 +18,27 @@ function Block({ block }: { block: TranscriptBlock }): ReactElement | null {
   if (block.kind === 'command') {
     const exe = block.command?.executable ?? '';
     return (
-      <div style={{ padding: '0.5rem', background: 'var(--color-surface-section)', borderRadius: 'var(--radius-2)' }}>
+      <div
+        style={{
+          padding: '0.5rem',
+          background: 'var(--color-surface-section)',
+          borderRadius: 'var(--radius-2)',
+        }}
+      >
         <div style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>$ {exe}</div>
       </div>
     );
   }
   if (block.kind === 'output') {
     return (
-      <pre style={{ margin: 0, fontFamily: 'monospace', whiteSpace: 'pre-wrap', color: 'var(--color-text-primary)' }}>
+      <pre
+        style={{
+          margin: 0,
+          fontFamily: 'monospace',
+          whiteSpace: 'pre-wrap',
+          color: 'var(--color-text-primary)',
+        }}
+      >
         {renderRichOutput(block.output)}
       </pre>
     );
@@ -38,13 +52,19 @@ function Block({ block }: { block: TranscriptBlock }): ReactElement | null {
     );
   }
   if (block.kind === 'notice') {
-    return <div style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>{block.message}</div>;
+    return (
+      <div style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>{block.message}</div>
+    );
   }
   if (block.kind === 'policyDenied') {
     return <div style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>denied</div>;
   }
   if (block.kind === 'documentation') {
-    return <div style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>doc: {block.ref.documentId}</div>;
+    return (
+      <div style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
+        doc: {block.ref.documentId}
+      </div>
+    );
   }
   return null;
 }

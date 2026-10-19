@@ -1,18 +1,10 @@
-import type {
-  CommandDraft,
-  DocumentationSearchResult,
-  ExecutionEvent,
-  LazarusInteraction,
-  WorkspaceContext,
-} from '@lazarus/contracts';
-import { Ajv2020 } from 'ajv/dist/2020.js';
-import formatsModule from 'ajv-formats';
-import type { FormatsPlugin } from 'ajv-formats';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
+
+import { Ajv2020 } from 'ajv/dist/2020.js';
+import formatsModule from 'ajv-formats';
 import { describe, expect, it } from 'vitest';
 
-import type { CommandSuggestionCandidate, InteractionAction } from '../src/actions.js';
 import { interpretOutput } from '../src/ansi.js';
 import {
   initialState,
@@ -21,6 +13,16 @@ import {
   typedText,
   type DraftTransition,
 } from '../src/reducer.js';
+
+import type { CommandSuggestionCandidate, InteractionAction } from '../src/actions.js';
+import type {
+  CommandDraft,
+  DocumentationSearchResult,
+  ExecutionEvent,
+  LazarusInteraction,
+  WorkspaceContext,
+} from '@lazarus/contracts';
+import type { FormatsPlugin } from 'ajv-formats';
 
 /**
  * Reducer behaviour, table-driven over every action (§10: a table-driven case for
@@ -84,7 +86,8 @@ const draft = (modified: boolean): CommandDraft => ({
 });
 
 const candidate = (
-  overrides: Partial<CommandSuggestionCandidate> & Pick<CommandSuggestionCandidate, 'label' | 'kind'>,
+  overrides: Partial<CommandSuggestionCandidate> &
+    Pick<CommandSuggestionCandidate, 'label' | 'kind'>,
 ): CommandSuggestionCandidate => ({ ...overrides });
 
 const executionEvents: readonly ExecutionEvent[] = [
@@ -109,7 +112,12 @@ const executionEvents: readonly ExecutionEvent[] = [
 
 const searchResults: readonly DocumentationSearchResult[] = [
   { kind: 'document', ref: { documentId: 'intro', title: 'Intro' }, score: 0.5 },
-  { kind: 'command', ref: { documentId: 'usage', title: 'List files' }, commandId: 'ls', score: 0.9 },
+  {
+    kind: 'command',
+    ref: { documentId: 'usage', title: 'List files' },
+    commandId: 'ls',
+    score: 0.9,
+  },
 ];
 
 const actions: readonly (readonly [string, InteractionAction])[] = [
@@ -117,20 +125,33 @@ const actions: readonly (readonly [string, InteractionAction])[] = [
   ['draftChanged', { type: 'draftChanged', draft: draft(true), at: AT }],
   ['draftCleared', { type: 'draftCleared', at: AT }],
   ['draftConflictResolved/kept', { type: 'draftConflictResolved', resolution: 'kept', at: AT }],
-  ['draftConflictResolved/replaced', { type: 'draftConflictResolved', resolution: 'replaced', at: AT }],
+  [
+    'draftConflictResolved/replaced',
+    { type: 'draftConflictResolved', resolution: 'replaced', at: AT },
+  ],
   [
     'suggestionsProvided',
     {
       type: 'suggestionsProvided',
       at: AT,
       candidates: [
-        candidate({ kind: 'documentedCommand', label: 'ls', draft: { executable: 'ls', arguments: [] } }),
+        candidate({
+          kind: 'documentedCommand',
+          label: 'ls',
+          draft: { executable: 'ls', arguments: [] },
+        }),
         candidate({ kind: 'executableName', label: 'cat' }),
       ],
     },
   ],
-  ['searchResultsProvided', { type: 'searchResultsProvided', query: 'list', results: searchResults, at: AT }],
-  ['executionEventReceived', { type: 'executionEventReceived', event: executionEvents[0] as ExecutionEvent, at: AT }],
+  [
+    'searchResultsProvided',
+    { type: 'searchResultsProvided', query: 'list', results: searchResults, at: AT },
+  ],
+  [
+    'executionEventReceived',
+    { type: 'executionEventReceived', event: executionEvents[0] as ExecutionEvent, at: AT },
+  ],
   ['noticeRaised', { type: 'noticeRaised', level: 'info', message: 'Copied', at: AT }],
   ['transcriptCleared', { type: 'transcriptCleared', at: AT }],
 ];
@@ -149,21 +170,19 @@ describe('every action produces contract-valid state', () => {
 });
 
 describe('every execution event produces contract-valid state', () => {
-  it.each(executionEvents.map((event) => [event.kind, event] as const))(
-    '%s',
-    (_name, event) => {
-      assertValid(
-        interactionReducer(initialState(context), { type: 'executionEventReceived', event, at: AT }),
-        event.kind,
-      );
-    },
-  );
+  it.each(executionEvents.map((event) => [event.kind, event] as const))('%s', (_name, event) => {
+    assertValid(
+      interactionReducer(initialState(context), { type: 'executionEventReceived', event, at: AT }),
+      event.kind,
+    );
+  });
 
   it('records a whole execution in order', () => {
     const final = executionEvents
       .slice(0, 3)
       .reduce(
-        (state, event) => interactionReducer(state, { type: 'executionEventReceived', event, at: AT }),
+        (state, event) =>
+          interactionReducer(state, { type: 'executionEventReceived', event, at: AT }),
         initialState(context),
       );
     expect(final.blocks.blocks.map((block) => block.kind)).toEqual(['command', 'output', 'result']);
@@ -229,7 +248,11 @@ describe('draft conflict', () => {
 
   it('replaces an unmodified draft without asking', () => {
     const state = interactionReducer(
-      interactionReducer(initialState(context), { type: 'draftChanged', draft: draft(false), at: AT }),
+      interactionReducer(initialState(context), {
+        type: 'draftChanged',
+        draft: draft(false),
+        at: AT,
+      }),
       { type: 'contextChanged', context: otherContext, at: AT },
     );
     expect(state.draft).toBeNull();
@@ -260,7 +283,11 @@ describe('draft conflict', () => {
 describe('execution events in state', () => {
   it('clears the draft once the command has started', () => {
     const state = interactionReducer(
-      interactionReducer(initialState(context), { type: 'draftChanged', draft: draft(true), at: AT }),
+      interactionReducer(initialState(context), {
+        type: 'draftChanged',
+        draft: draft(true),
+        at: AT,
+      }),
       { type: 'executionEventReceived', event: executionEvents[0] as ExecutionEvent, at: AT },
     );
     expect(state.draft).toBeNull();
@@ -268,11 +295,13 @@ describe('execution events in state', () => {
 
   it('is idempotent under replay', () => {
     const once = executionEvents.reduce(
-      (state, event) => interactionReducer(state, { type: 'executionEventReceived', event, at: AT }),
+      (state, event) =>
+        interactionReducer(state, { type: 'executionEventReceived', event, at: AT }),
       initialState(context),
     );
     const twice = executionEvents.reduce(
-      (state, event) => interactionReducer(state, { type: 'executionEventReceived', event, at: AT }),
+      (state, event) =>
+        interactionReducer(state, { type: 'executionEventReceived', event, at: AT }),
       once,
     );
     expect(twice).toBe(once);
@@ -285,9 +314,7 @@ describe('execution events in state', () => {
       event,
       at: AT,
     });
-    expect(
-      interactionReducer(once, { type: 'executionEventReceived', event, at: AT }),
-    ).toBe(once);
+    expect(interactionReducer(once, { type: 'executionEventReceived', event, at: AT })).toBe(once);
   });
 
   it('records a denial in the transcript rather than dropping it', () => {
@@ -307,7 +334,11 @@ describe('suggestions and search', () => {
       at: AT,
       candidates: [
         candidate({ kind: 'historyEntry', label: 'ls' }),
-        candidate({ kind: 'documentedCommand', label: 'ls', draft: { executable: 'ls', arguments: [] } }),
+        candidate({
+          kind: 'documentedCommand',
+          label: 'ls',
+          draft: { executable: 'ls', arguments: [] },
+        }),
       ],
     });
     expect(state.suggestions.rankedAt).toBe(AT);
@@ -323,7 +354,11 @@ describe('suggestions and search', () => {
       at: AT,
       candidates: [candidate({ kind: 'documentedCommand', label: 'ls' })],
     });
-    const moved = interactionReducer(ranked, { type: 'contextChanged', context: otherContext, at: AT });
+    const moved = interactionReducer(ranked, {
+      type: 'contextChanged',
+      context: otherContext,
+      at: AT,
+    });
     expect(moved.suggestions.items).toEqual([]);
   });
 
@@ -334,7 +369,11 @@ describe('suggestions and search', () => {
       results: searchResults,
       at: AT,
     });
-    const moved = interactionReducer(searched, { type: 'contextChanged', context: otherContext, at: AT });
+    const moved = interactionReducer(searched, {
+      type: 'contextChanged',
+      context: otherContext,
+      at: AT,
+    });
     expect(moved.search.results).toEqual([]);
   });
 
@@ -352,11 +391,14 @@ describe('suggestions and search', () => {
 describe('transcript', () => {
   it('clears on request', () => {
     const busy = executionEvents.reduce(
-      (state, event) => interactionReducer(state, { type: 'executionEventReceived', event, at: AT }),
+      (state, event) =>
+        interactionReducer(state, { type: 'executionEventReceived', event, at: AT }),
       initialState(context),
     );
     expect(busy.blocks.blocks.length).toBeGreaterThan(0);
-    expect(interactionReducer(busy, { type: 'transcriptCleared', at: AT }).blocks.blocks).toEqual([]);
+    expect(interactionReducer(busy, { type: 'transcriptCleared', at: AT }).blocks.blocks).toEqual(
+      [],
+    );
   });
 
   it('records a local notice', () => {

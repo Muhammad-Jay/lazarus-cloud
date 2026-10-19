@@ -1,5 +1,15 @@
+import {
+  colorRoles,
+  motion,
+  palette,
+  radius,
+  semantic,
+  shadow,
+  spacing,
+  zIndex,
+} from './generated/tokens.js';
+
 import type { ColorRole } from './generated/tokens.js';
-import { colorRoles, motion, palette, radius, semantic, shadow, spacing, zIndex } from './generated/tokens.js';
 
 export type { ColorRole } from './generated/tokens.js';
 

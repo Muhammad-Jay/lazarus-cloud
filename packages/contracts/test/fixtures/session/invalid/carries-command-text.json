@@ -13,7 +13,5 @@
     "maxExecutions": 50,
     "maxConcurrent": 4
   },
-  "commands": [
-    "git status"
-  ]
+  "commands": ["git status"]
 }

@@ -3,10 +3,11 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { Ajv2020 } from 'ajv/dist/2020.js';
-import type { ErrorObject } from 'ajv/dist/2020.js';
 import formatsModule from 'ajv-formats';
-import type { FormatsPlugin } from 'ajv-formats';
 import { describe, expect, it } from 'vitest';
+
+import type { ErrorObject } from 'ajv/dist/2020.js';
+import type { FormatsPlugin } from 'ajv-formats';
 
 /**
  * Golden-fixture harness for this package's schemas.
@@ -218,11 +219,7 @@ export const registerDefSuite = ({
   });
 };
 
-export const registerSchemaSuite = ({
-  name,
-  schemaFile,
-  fixtureDir,
-}: SchemaSuiteOptions): void => {
+export const registerSchemaSuite = ({ name, schemaFile, fixtureDir }: SchemaSuiteOptions): void => {
   const schema = readJson(join(packageRoot, schemaFile)) as SchemaShape;
 
   const ajv = new Ajv2020({ allErrors: true, strict: true });
@@ -270,33 +267,27 @@ export const registerSchemaSuite = ({
       expect(invalidFixtures.map(fixtureName).sort()).toEqual([...reasons.keys()].sort());
     });
 
-    it.each(invalidFixtures)(
-      'rejects %s for its named keyword and path',
-      (path: string) => {
-        const fixture = fixtureName(path);
-        const expected = reasons.get(fixture);
+    it.each(invalidFixtures)('rejects %s for its named keyword and path', (path: string) => {
+      const fixture = fixtureName(path);
+      const expected = reasons.get(fixture);
 
-        if (expected === undefined) {
-          throw new Error(`${fixture} has no named reason in ${fixtureDir}/invalid-reasons.txt`);
-        }
+      if (expected === undefined) {
+        throw new Error(`${fixture} has no named reason in ${fixtureDir}/invalid-reasons.txt`);
+      }
 
-        const errors = errorsFor(path);
+      const errors = errorsFor(path);
 
-        expect(
-          errors.some(
-            (error: ErrorObject) =>
-              error.keyword === expected.keyword &&
-              normalisePath(error.instancePath) === normalisePath(expected.instancePath) &&
-              matchesMissingProperty(error, expected.missingProperty),
-          ),
-          `expected ${fixture} to fail with ${expected.keyword} at ${expected.instancePath} (${expected.reason}), got ${errors
-            .map(
-              (error: ErrorObject) =>
-                `${error.keyword} at ${normalisePath(error.instancePath)}`,
-            )
-            .join(', ')}`,
-        ).toBe(true);
-      },
-    );
+      expect(
+        errors.some(
+          (error: ErrorObject) =>
+            error.keyword === expected.keyword &&
+            normalisePath(error.instancePath) === normalisePath(expected.instancePath) &&
+            matchesMissingProperty(error, expected.missingProperty),
+        ),
+        `expected ${fixture} to fail with ${expected.keyword} at ${expected.instancePath} (${expected.reason}), got ${errors
+          .map((error: ErrorObject) => `${error.keyword} at ${normalisePath(error.instancePath)}`)
+          .join(', ')}`,
+      ).toBe(true);
+    });
   });
 };

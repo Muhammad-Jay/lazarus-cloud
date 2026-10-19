@@ -55,9 +55,7 @@ describe('syntheticId', () => {
   it('distinguishes keys that differ only in a numeric suffix', () => {
     // `output:abc:1` and `output:abc:2` must not collide, or one output event
     // would replace another in the transcript.
-    expect(syntheticId('block', 'output:abc:1')).not.toBe(
-      syntheticId('block', 'output:abc:2'),
-    );
+    expect(syntheticId('block', 'output:abc:1')).not.toBe(syntheticId('block', 'output:abc:2'));
   });
 
   it('handles an empty scope and key', () => {
@@ -73,9 +71,7 @@ describe('syntheticId', () => {
   it('spreads distinct keys across distinct values', () => {
     // Not a collision-resistance claim; a smoke test that the two 64-bit halves
     // are not correlated, which would halve the digest.
-    const ids = new Set(
-      Array.from({ length: 500 }, (_, i) => syntheticId('block', `key-${i}`)),
-    );
+    const ids = new Set(Array.from({ length: 500 }, (_, i) => syntheticId('block', `key-${i}`)));
     expect(ids.size).toBe(500);
   });
 });

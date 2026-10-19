@@ -1,6 +1,6 @@
-import type { ExecutionEvent, IsoTimestamp, TranscriptBlock } from '@lazarus/contracts';
-
 import { syntheticId } from './ids.js';
+
+import type { ExecutionEvent, IsoTimestamp, TranscriptBlock } from '@lazarus/contracts';
 
 /**
  * Normalisation: the single point where an `ExecutionEvent` becomes a
@@ -70,14 +70,30 @@ export function eventIdentity(event: ExecutionEvent): string {
  *   to invent here; the caller already knows the time because it dispatched the
  *   action, and requiring it makes that explicit rather than a silent `''`.
  */
-export function blockForEvent(event: ExecutionEvent, receivedAt: IsoTimestamp): TranscriptBlock | null {
+export function blockForEvent(
+  event: ExecutionEvent,
+  receivedAt: IsoTimestamp,
+): TranscriptBlock | null {
   const id = syntheticId(BLOCK_SCOPE, eventIdentity(event));
 
   switch (event.kind) {
     case 'executionStarted':
-      return { kind: 'command', id, executionId: event.executionId, command: event.command, at: event.at };
+      return {
+        kind: 'command',
+        id,
+        executionId: event.executionId,
+        command: event.command,
+        at: event.at,
+      };
     case 'executionOutput':
-      return { kind: 'output', id, executionId: event.executionId, sequence: event.sequence, output: event.output, at: event.at ?? receivedAt };
+      return {
+        kind: 'output',
+        id,
+        executionId: event.executionId,
+        sequence: event.sequence,
+        output: event.output,
+        at: event.at ?? receivedAt,
+      };
     case 'executionCompleted':
       return {
         kind: 'result',
@@ -98,7 +114,13 @@ export function blockForEvent(event: ExecutionEvent, receivedAt: IsoTimestamp): 
         at: event.at,
       };
     case 'executionDenied':
-      return { kind: 'policyDenied', id, executionId: event.executionId, decision: event.decision, at: event.at };
+      return {
+        kind: 'policyDenied',
+        id,
+        executionId: event.executionId,
+        decision: event.decision,
+        at: event.at,
+      };
     case 'executionFailed':
       return {
         kind: 'notice',

@@ -89,21 +89,21 @@ longer contradict the product shape or current implementation.
 The hard rules should fail locally before review. Several are described in docs but
 not yet enforced across the whole repo.
 
-- [ ] **1.1** Create shared package tooling in `packages/config`: TypeScript,
+- [x] **1.1** Create shared package tooling in `packages/config`: TypeScript,
       Vitest, lint, and formatting presets used by every TS package.
-- [ ] **1.2** Add lint rules/tests for frontend package boundaries: no package
+- [x] **1.2** Add lint rules/tests for frontend package boundaries: no package
       imports another package's `src/`, no phantom dependencies, no `feature-*` to
       `feature-*` imports.
-- [ ] **1.3** Add raw visual value enforcement outside `packages/tokens`: no raw
+- [x] **1.3** Add raw visual value enforcement outside `packages/tokens`: no raw
       Tailwind colors, arbitrary color values, visual inline styles, `rgb()`,
       `hsl()`, or `oklch()` in UI code.
-- [ ] **1.4** Make `just check` reliable with the current repo state. Fix missing
+- [x] **1.4** Make `just check` reliable with the current repo state. Fix missing
       scripts or stale package metadata rather than weakening checks.
-- [ ] **1.5** Add contract drift coverage for generated TypeScript and docs, and
+- [x] **1.5** Add contract drift coverage for generated TypeScript and docs, and
       extend the check when C# and Go generation land.
-- [ ] **1.6** Add dependency hygiene checks for banned packages: `xterm.js`,
+- [x] **1.6** Add dependency hygiene checks for banned packages: `xterm.js`,
       `node-pty`, `@xterm/*`, `reactflow`, and `@xyflow/react`.
-- [ ] **1.7** Ensure local build caches and generated package build outputs stay
+- [x] **1.7** Ensure local build caches and generated package build outputs stay
       ignored unless a future ADR explicitly changes that.
 
 Accept: boundary violations are caught by tests/lint, and `just check` is the honest

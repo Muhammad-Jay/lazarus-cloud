@@ -13,18 +13,9 @@
  * @see docs/adr/0014-framework-free-interaction-core.md
  */
 
-export type {
-  CommandSuggestionCandidate,
-  InteractionAction,
-  NoticeLevel,
-} from './actions.js';
+export type { CommandSuggestionCandidate, InteractionAction, NoticeLevel } from './actions.js';
 
-export {
-  containsAnsi,
-  interpretOutput,
-  MAX_SPANS,
-  type InterpretOptions,
-} from './ansi.js';
+export { containsAnsi, interpretOutput, MAX_SPANS, type InterpretOptions } from './ansi.js';
 
 export { syntheticId } from './ids.js';
 
@@ -38,8 +29,4 @@ export {
   type DraftTransition,
 } from './reducer.js';
 
-export {
-  appendEvent,
-  blockForEvent,
-  eventIdentity,
-} from './transcript.js';
+export { appendEvent, blockForEvent, eventIdentity } from './transcript.js';

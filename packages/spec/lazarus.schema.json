@@ -68,7 +68,9 @@
       "description": "A content-addressed container image reference. A tag is not an identity, so a digest is required and a tag alone is invalid.",
       "type": "string",
       "pattern": "^[^\\s@]+@sha256:[0-9a-f]{64}$",
-      "examples": ["docker.io/library/git@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"]
+      "examples": [
+        "docker.io/library/git@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+      ]
     },
     "portNumber": {
       "description": "A TCP port, 1-65535. A value object rather than a bare integer, because the range is an invariant.",

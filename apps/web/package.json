@@ -2,16 +2,18 @@
   "name": "web",
   "version": "0.0.0",
   "private": true,
-  "description": "Lazarus dashboard (composition only) — Next.js 16 App Router",
+  "description": "Lazarus interactive documentation workspace — Next.js 15 App Router",
   "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next typegen && tsc --noEmit",
+    "lint": "eslint . --cache",
     "typecheck": "next typegen && tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "fmt": "prettier --write . --ignore-path ../../.prettierignore",
+    "fmt-check": "prettier --check . --ignore-path ../../.prettierignore"
   },
   "dependencies": {
     "@lazarus/contracts": "workspace:*",
@@ -26,6 +28,18 @@
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "eslint": "catalog:",
+    "@eslint/js": "catalog:",
+    "typescript-eslint": "catalog:",
+    "eslint-plugin-import": "catalog:",
+    "eslint-plugin-unused-imports": "catalog:",
+    "prettier": "catalog:",
+    "@next/eslint-plugin-next": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "jsdom": "catalog:",
+    "@testing-library/jest-dom": "^6.4.0",
+    "@testing-library/react": "^16.0.0",
+    "@lazarus/config": "workspace:*"
   }
 }

@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
 import { describe, expect, it } from 'vitest';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -18,7 +19,13 @@ describe('@lazarus/tokens framework-free boundary', () => {
     function walk(dir: string): void {
       for (const f of readdirSync(dir)) {
         const p = join(dir, f);
-        if (p.endsWith('.ts') || p.endsWith('.js') || p.endsWith('.mjs') || p.endsWith('.cts') || p.endsWith('.mts')) {
+        if (
+          p.endsWith('.ts') ||
+          p.endsWith('.js') ||
+          p.endsWith('.mjs') ||
+          p.endsWith('.cts') ||
+          p.endsWith('.mts')
+        ) {
           files.push(p);
         }
       }
@@ -28,7 +35,13 @@ describe('@lazarus/tokens framework-free boundary', () => {
       const txt = readFileSync(f, 'utf8');
       for (const m of txt.matchAll(/import\s+.*?from\s+['"]([^'"]+)['"]/g)) {
         const spec = m[1]!;
-        if (spec.startsWith('node:') || spec.startsWith('./') || spec.startsWith('../') || spec === '.') continue;
+        if (
+          spec.startsWith('node:') ||
+          spec.startsWith('./') ||
+          spec.startsWith('../') ||
+          spec === '.'
+        )
+          continue;
         if (spec.startsWith('@lazarus/tokens')) continue;
         throw new Error(`external import in ${f}: ${spec}`);
       }
@@ -36,7 +49,7 @@ describe('@lazarus/tokens framework-free boundary', () => {
   });
 
   it('has no dependencies field in package.json', () => {
-    const pkg = JSON.parse(read(pkgRoot + '/package.json'));
+    const pkg = JSON.parse(read(`${pkgRoot}/package.json`));
     expect(pkg.dependencies).toBeUndefined();
   });
 });

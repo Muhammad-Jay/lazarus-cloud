@@ -1,0 +1,23 @@
+# Prettier ignores. Resolved from each workspace package via `--ignore-path`.
+#
+# Generated output is never hand-edited (AGENTS.md §4.10); build output and
+# caches are produced by the toolchain, not authored.
+
+# Build output and caches
+node_modules/
+dist/
+.next/
+.turbo/
+coverage/
+out/
+
+# Generated contract/token sources. `**/` is required: a pattern containing a
+# slash is anchored to this file's directory, and generated sources live in each
+# package's `src/generated/` (AGENTS.md §4.10).
+**/src/generated/
+
+# Tool caches and lockfiles
+*.tsbuildinfo
+.eslintcache
+.pnpm-store/
+pnpm-lock.yaml

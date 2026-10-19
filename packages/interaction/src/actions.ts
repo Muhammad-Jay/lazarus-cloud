@@ -36,9 +36,18 @@ export type InteractionAction =
   /** The reader answered a raised draft conflict. */
   | { type: 'draftConflictResolved'; resolution: 'kept' | 'replaced'; at: IsoTimestamp }
   /** New suggestion candidates arrived; the reducer ranks them. */
-  | { type: 'suggestionsProvided'; candidates: readonly CommandSuggestionCandidate[]; at: IsoTimestamp }
+  | {
+      type: 'suggestionsProvided';
+      candidates: readonly CommandSuggestionCandidate[];
+      at: IsoTimestamp;
+    }
   /** New search results arrived; the reducer ranks them. */
-  | { type: 'searchResultsProvided'; query: string; results: readonly DocumentationSearchResult[]; at: IsoTimestamp }
+  | {
+      type: 'searchResultsProvided';
+      query: string;
+      results: readonly DocumentationSearchResult[];
+      at: IsoTimestamp;
+    }
   /** The available non-command actions changed — a task, document or execution arrived. */
   | { type: 'actionsProvided'; actions: readonly Action[]; at: IsoTimestamp }
   /** One event from an execution's stream. */

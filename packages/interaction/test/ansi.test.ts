@@ -19,7 +19,9 @@ const ST = '\x1b\\';
 const stdout = { stream: 'stdout' } as const;
 
 const textOf = (raw: string, options = stdout): string =>
-  interpretOutput(raw, options).spans.map((span) => span.text).join('');
+  interpretOutput(raw, options)
+    .spans.map((span) => span.text)
+    .join('');
 
 describe('interpretOutput', () => {
   it('leaves plain text in a single span', () => {
@@ -56,7 +58,9 @@ describe('interpretOutput', () => {
       ] as const;
 
       for (const [code, role] of cases) {
-        expect(interpretOutput(`${ESC}[${code}mred${ESC}[0m`, stdout).spans[0]?.style?.color).toBe(role);
+        expect(interpretOutput(`${ESC}[${code}mred${ESC}[0m`, stdout).spans[0]?.style?.color).toBe(
+          role,
+        );
       }
     });
 
@@ -66,24 +70,35 @@ describe('interpretOutput', () => {
         [91, 'danger'],
         [92, 'success'],
       ] as const) {
-        expect(interpretOutput(`${ESC}[${code}mx${ESC}[0m`, stdout).spans[0]?.style?.color).toBe(role);
+        expect(interpretOutput(`${ESC}[${code}mx${ESC}[0m`, stdout).spans[0]?.style?.color).toBe(
+          role,
+        );
       }
     });
 
     it('drops extended colour because there is no token for it', () => {
       // 256-colour and truecolour fall back to `default` rather than inventing a
       // colour the design system has no name for (ADR-0018).
-      expect(interpretOutput(`${ESC}[38;5;214mx${ESC}[0m`, stdout).spans[0]?.style?.color).toBe('default');
-      expect(interpretOutput(`${ESC}[38;2;255;0;0mx${ESC}[0m`, stdout).spans[0]?.style?.color).toBe('default');
+      expect(interpretOutput(`${ESC}[38;5;214mx${ESC}[0m`, stdout).spans[0]?.style?.color).toBe(
+        'default',
+      );
+      expect(interpretOutput(`${ESC}[38;2;255;0;0mx${ESC}[0m`, stdout).spans[0]?.style?.color).toBe(
+        'default',
+      );
     });
 
     it('drops background colour too', () => {
-      expect(interpretOutput(`${ESC}[41mx${ESC}[0m`, stdout).spans[0]?.style?.color).toBe('default');
+      expect(interpretOutput(`${ESC}[41mx${ESC}[0m`, stdout).spans[0]?.style?.color).toBe(
+        'default',
+      );
     });
 
     it('never emits a literal colour', () => {
       const serialised = JSON.stringify(
-        interpretOutput(`${ESC}[31m${ESC}[1m${ESC}[4mred${ESC}[0m${ESC}[38;5;9morange${ESC}[0m`, stdout),
+        interpretOutput(
+          `${ESC}[31m${ESC}[1m${ESC}[4mred${ESC}[0m${ESC}[38;5;9morange${ESC}[0m`,
+          stdout,
+        ),
       );
       expect(serialised).not.toMatch(/#[0-9a-fA-F]{3,8}/);
       expect(serialised).not.toMatch(/rgb|hsl|oklch/i);
@@ -92,7 +107,8 @@ describe('interpretOutput', () => {
 
   describe('attributes', () => {
     it('reads bold, dim, italic and underline', () => {
-      const style = interpretOutput(`${ESC}[1m${ESC}[2m${ESC}[3m${ESC}[4mx`, stdout).spans[0]?.style;
+      const style = interpretOutput(`${ESC}[1m${ESC}[2m${ESC}[3m${ESC}[4mx`, stdout).spans[0]
+        ?.style;
       expect(style).toEqual({
         color: 'default',
         bold: true,
@@ -103,7 +119,8 @@ describe('interpretOutput', () => {
     });
 
     it('honours the individual resets', () => {
-      const style = interpretOutput(`${ESC}[1m${ESC}[3ma${ESC}[22m${ESC}[23mb`, stdout).spans[1]?.style;
+      const style = interpretOutput(`${ESC}[1m${ESC}[3ma${ESC}[22m${ESC}[23mb`, stdout).spans[1]
+        ?.style;
       expect(style?.bold).toBeUndefined();
       expect(style?.italic).toBeUndefined();
     });

@@ -357,10 +357,7 @@ export function interpretOutput(raw: string, options: InterpretOptions): RichOut
       continue;
     }
 
-    const isC0 =
-      code === 0x09 ||
-      (code <= 0x1f && code !== 0x0a) ||
-      code === 0x7f;
+    const isC0 = code === 0x09 || (code <= 0x1f && code !== 0x0a) || code === 0x7f;
     if (isC0) {
       buffer += code === 0x09 ? '\t' : '';
       index += 1;
@@ -377,7 +374,10 @@ export function interpretOutput(raw: string, options: InterpretOptions): RichOut
   if (finalSpans.length > maxSpans) {
     truncated = true;
     const kept = finalSpans.slice(0, maxSpans);
-    const tail = finalSpans.slice(maxSpans).map((span) => span.text).join('');
+    const tail = finalSpans
+      .slice(maxSpans)
+      .map((span) => span.text)
+      .join('');
     const lastKept = kept[kept.length - 1];
     if (lastKept !== undefined) {
       lastKept.text += tail;

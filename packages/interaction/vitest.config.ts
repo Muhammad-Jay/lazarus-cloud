@@ -1,11 +1,11 @@
-import { defineConfig } from 'vitest/config';
+import { defineConfig, mergeConfig } from 'vitest/config';
+import base from '@lazarus/config/vitest';
 
-export default defineConfig({
-  test: {
-    include: ['test/**/*.test.ts'],
-    // No DOM environment. If this package ever reaches for `document`,
-    // `localStorage` or a timer, the tests must fail to find them rather than
-    // pass because jsdom quietly supplied them (ADR-0014).
-    environment: 'node',
-  },
-});
+export default mergeConfig(
+  base,
+  defineConfig({
+    test: {
+      include: ['test/**/*.test.ts'],
+    },
+  }),
+);

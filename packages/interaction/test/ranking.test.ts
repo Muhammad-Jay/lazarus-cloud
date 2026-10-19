@@ -1,8 +1,9 @@
-import type { CommandSuggestion } from '@lazarus/contracts';
 import { describe, expect, it } from 'vitest';
 
-import type { CommandSuggestionCandidate } from '../src/actions.js';
 import { rankSearchResults, rankSuggestions } from '../src/ranking.js';
+
+import type { CommandSuggestionCandidate } from '../src/actions.js';
+import type { CommandSuggestion } from '@lazarus/contracts';
 
 /**
  * Ranking is computed once, here, and no client re-implements it (§4.4, §6.3).
@@ -137,7 +138,10 @@ describe('rankSuggestions', () => {
   });
 
   it('ignores surrounding whitespace in the query', () => {
-    const padded = rankSuggestions([withDraft({ kind: 'documentedCommand', label: 'ls' })], '  ls  ');
+    const padded = rankSuggestions(
+      [withDraft({ kind: 'documentedCommand', label: 'ls' })],
+      '  ls  ',
+    );
     expect(padded).toHaveLength(1);
   });
 
@@ -169,7 +173,9 @@ describe('rankSuggestions', () => {
 
     it('is stable under input reordering', () => {
       const forward = rankSuggestions(candidates, 'a').map((i) => `${i.kind}:${i.label}`);
-      const reversed = rankSuggestions([...candidates].reverse(), 'a').map((i) => `${i.kind}:${i.label}`);
+      const reversed = rankSuggestions([...candidates].reverse(), 'a').map(
+        (i) => `${i.kind}:${i.label}`,
+      );
       expect(reversed).toEqual(forward);
     });
 
@@ -193,7 +199,13 @@ describe('rankSuggestions', () => {
     // submitted and still adjudicated by PolicyEvaluator (§4.5, ADR-0015); the
     // ranking simply does not surface it.
     const ranked = rankSuggestions(
-      [withDraft({ kind: 'executableName', label: 'curl', draft: { executable: 'curl', arguments: [] } })],
+      [
+        withDraft({
+          kind: 'executableName',
+          label: 'curl',
+          draft: { executable: 'curl', arguments: [] },
+        }),
+      ],
       'curl',
     );
     expect(ranked).toHaveLength(1);

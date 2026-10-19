@@ -17,7 +17,10 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "build": "tsc --project tsconfig.build.json"
+    "build": "tsc --project tsconfig.build.json",
+    "lint": "eslint . --cache",
+    "fmt": "prettier --write . --ignore-path ../../.prettierignore",
+    "fmt-check": "prettier --check . --ignore-path ../../.prettierignore"
   },
   "dependencies": {
     "@lazarus/contracts": "workspace:*"
@@ -27,7 +30,15 @@
     "ajv": "catalog:",
     "ajv-formats": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "eslint": "catalog:",
+    "@eslint/js": "catalog:",
+    "typescript-eslint": "catalog:",
+    "eslint-plugin-import": "catalog:",
+    "eslint-plugin-unused-imports": "catalog:",
+    "prettier": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "@lazarus/config": "workspace:*"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts"

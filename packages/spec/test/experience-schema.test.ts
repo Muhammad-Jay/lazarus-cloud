@@ -3,10 +3,11 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { Ajv2020 } from 'ajv/dist/2020.js';
-import type { ErrorObject } from 'ajv/dist/2020.js';
 import formatsModule from 'ajv-formats';
-import type { FormatsPlugin } from 'ajv-formats';
 import { describe, expect, it } from 'vitest';
+
+import type { ErrorObject } from 'ajv/dist/2020.js';
+import type { FormatsPlugin } from 'ajv-formats';
 
 /**
  * The single justified interop boundary in this package: `ajv-formats` is a
@@ -115,17 +116,13 @@ interface InvalidReason {
  * from quietly making a boundary unexpressible.
  */
 const readInvalidReasons = (): ReadonlyMap<string, InvalidReason> => {
-  const raw = readFileSync(
-    join(packageRoot, 'test', 'fixtures', 'invalid-reasons.txt'),
-    'utf8',
-  );
+  const raw = readFileSync(join(packageRoot, 'test', 'fixtures', 'invalid-reasons.txt'), 'utf8');
 
   const entries = raw
     .split('\n')
     .filter((line: string) => line.trim().length > 0 && !line.startsWith('#'))
     .map((line: string) => {
-      const [filename, keyword, instancePath, missingProperty, reason, ...rest] =
-        line.split('|');
+      const [filename, keyword, instancePath, missingProperty, reason, ...rest] = line.split('|');
 
       if (
         filename === undefined ||
