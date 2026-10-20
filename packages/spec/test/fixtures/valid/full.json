@@ -45,9 +45,7 @@
       "documentId": "find-a-file"
     }
   ],
-  "secrets": [
-    { "name": "registry-token", "envVar": "REGISTRY_TOKEN", "required": false }
-  ],
+  "secrets": [{ "name": "registry-token", "envVar": "REGISTRY_TOKEN", "required": false }],
   "policies": [
     {
       "id": "no-package-install",

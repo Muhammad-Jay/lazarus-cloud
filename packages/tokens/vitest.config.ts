@@ -1,8 +1,11 @@
-import { defineConfig } from 'vitest/config';
+import { defineConfig, mergeConfig } from 'vitest/config';
+import base from '@lazarus/config/vitest';
 
-export default defineConfig({
-  test: {
-    include: ['test/**/*.test.ts'],
-    environment: 'node',
-  },
-});
+export default mergeConfig(
+  base,
+  defineConfig({
+    test: {
+      include: ['test/**/*.test.ts'],
+    },
+  }),
+);

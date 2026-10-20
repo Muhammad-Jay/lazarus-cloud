@@ -50,13 +50,13 @@ codegen:
 
 # Format all code in place
 fmt:
-    @if [ -n "{{ ts_projects }}" ]; then pnpm -r fmt; else echo "ts: skipped (no workspace packages yet)"; fi
+    @if [ -n "{{ ts_projects }}" ]; then node tools/check-format.mjs --write && pnpm -r fmt; else echo "ts: skipped (no workspace packages yet)"; fi
     @[ -d apps/cli ] && gofmt -l -w apps/cli || echo "go: skipped"
     @if [ -n "{{ cp }}" ]; then dotnet format "{{ cp }}" --verbosity quiet; else echo "dotnet: skipped (no solution yet)"; fi
 
 # Verify formatting without writing changes
 fmt-check:
-    @if [ -n "{{ ts_projects }}" ]; then pnpm -r fmt-check; else echo "ts: skipped (no workspace packages yet)"; fi
+    @if [ -n "{{ ts_projects }}" ]; then node tools/check-format.mjs && pnpm -r fmt-check; else echo "ts: skipped (no workspace packages yet)"; fi
     @if [ -d apps/cli ]; then \
       unformatted="$(gofmt -l apps/cli)"; \
       if [ -n "$unformatted" ]; then echo "go: files need gofmt:"; echo "$unformatted"; exit 1; fi; \

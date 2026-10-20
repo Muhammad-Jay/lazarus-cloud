@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 /**
@@ -111,7 +112,9 @@ describe('@lazarus/interaction is framework-free', () => {
     for (const specifier of specifiersIn(stripComments(source))) {
       const isSibling = specifier.startsWith('./') || specifier.startsWith('../');
       const isInsideSrc = specifier.startsWith('../src/') || specifier.includes('/src/');
-      expect(isSibling && isInsideSrc, `${file} reaches outside the package: ${specifier}`).toBe(false);
+      expect(isSibling && isInsideSrc, `${file} reaches outside the package: ${specifier}`).toBe(
+        false,
+      );
     }
   });
 
@@ -159,9 +162,9 @@ describe('@lazarus/interaction is framework-free', () => {
   });
 
   it('declares no dependency other than the contracts package', async () => {
-    const manifest = JSON.parse(
-      readFileSync(join(SRC, '..', 'package.json'), 'utf8'),
-    ) as { dependencies?: Record<string, string> };
+    const manifest = JSON.parse(readFileSync(join(SRC, '..', 'package.json'), 'utf8')) as {
+      dependencies?: Record<string, string>;
+    };
     expect(Object.keys(manifest.dependencies ?? {}), 'runtime dependencies').toEqual([
       '@lazarus/contracts',
     ]);
@@ -170,9 +173,9 @@ describe('@lazarus/interaction is framework-free', () => {
   it('exports its public surface from the package root only', async () => {
     // Subpath exports would let a consumer reach into `src/` and bypass the
     // boundary; one entry point keeps the surface legible.
-    const manifest = JSON.parse(
-      readFileSync(join(SRC, '..', 'package.json'), 'utf8'),
-    ) as { exports?: Record<string, string> };
+    const manifest = JSON.parse(readFileSync(join(SRC, '..', 'package.json'), 'utf8')) as {
+      exports?: Record<string, string>;
+    };
     expect(Object.keys(manifest.exports ?? {})).toEqual(['.']);
   });
 });

@@ -41,9 +41,7 @@
           "documentId": "push-a-branch",
           "title": "Pushing a branch",
           "summary": "Create a branch and publish it to the remote.",
-          "relatedCommandIds": [
-            "git-push"
-          ]
+          "relatedCommandIds": ["git-push"]
         }
       },
       {
@@ -83,10 +81,7 @@
           "title": "Pushing a branch",
           "anchor": "remote",
           "summary": "Create a branch and publish it to the remote.",
-          "relatedCommandIds": [
-            "git-push",
-            "git-push-set-upstream"
-          ]
+          "relatedCommandIds": ["git-push", "git-push-set-upstream"]
         }
       },
       {
@@ -196,9 +191,7 @@
                   "documentId": "push-a-branch",
                   "title": "Pushing a branch",
                   "summary": "Create a branch and publish it to the remote.",
-                  "relatedCommandIds": [
-                    "git-push"
-                  ]
+                  "relatedCommandIds": ["git-push"]
                 }
               },
               {
@@ -231,9 +224,7 @@
                     "documentId": "push-a-branch",
                     "title": "Pushing a branch",
                     "summary": "Create a branch and publish it to the remote.",
-                    "relatedCommandIds": [
-                      "git-push"
-                    ]
+                    "relatedCommandIds": ["git-push"]
                   },
                   "prepared": true
                 }
@@ -241,9 +232,7 @@
               {
                 "kind": "control",
                 "label": "Re-run this check",
-                "actionIds": [
-                  "44444444-4444-4444-8444-444444444444"
-                ],
+                "actionIds": ["44444444-4444-4444-8444-444444444444"],
                 "value": null
               }
             ]
@@ -340,10 +329,7 @@
           "title": "Pushing a branch",
           "anchor": "remote",
           "summary": "Create a branch and publish it to the remote.",
-          "relatedCommandIds": [
-            "git-push",
-            "git-push-set-upstream"
-          ]
+          "relatedCommandIds": ["git-push", "git-push-set-upstream"]
         },
         "score": 0.94,
         "excerpt": "Push a branch and set its upstream."
@@ -362,9 +348,7 @@
         "ref": {
           "documentId": "push-a-branch",
           "title": "Pushing a branch",
-          "relatedCommandIds": [
-            "git-push"
-          ]
+          "relatedCommandIds": ["git-push"]
         },
         "commandId": "git-push",
         "score": 0.81

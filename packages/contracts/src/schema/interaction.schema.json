@@ -4,13 +4,7 @@
   "title": "Lazarus interaction",
   "description": "The interaction model: workspace context, command draft, suggestions, actions, transcript blocks, and the execution event stream. This contract changes with the product's behaviour, and it versions independently of the experience contract so an internal refactor is never a breaking change to published creator content (ADR-0016).\n\nWe own this contract. It is not creator-authored.",
   "type": "object",
-  "required": [
-    "context",
-    "suggestions",
-    "search",
-    "actions",
-    "blocks"
-  ],
+  "required": ["context", "suggestions", "search", "actions", "blocks"],
   "additionalProperties": false,
   "properties": {
     "context": { "$ref": "#/$defs/workspaceContext" },
@@ -176,7 +170,11 @@
       "additionalProperties": false,
       "properties": {
         "executable": { "$ref": "#/$defs/executableName" },
-        "arguments": { "type": "array", "items": { "$ref": "#/$defs/commandArgument" }, "maxItems": 128 },
+        "arguments": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/commandArgument" },
+          "maxItems": 128
+        },
         "sourceCommandId": {
           "description": "The documented command this draft started from, if any. Discovery provenance only; it is never treated as authorisation (ADR-0015).",
           "type": ["string", "null"],
@@ -219,7 +217,14 @@
         "id": { "$ref": "#/$defs/uuid" },
         "kind": {
           "type": "string",
-          "enum": ["openDocument", "startTask", "reuseCommand", "clearTranscript", "cancelExecution", "endSession"]
+          "enum": [
+            "openDocument",
+            "startTask",
+            "reuseCommand",
+            "clearTranscript",
+            "cancelExecution",
+            "endSession"
+          ]
         },
         "label": { "type": "string", "minLength": 1, "maxLength": 120 },
         "doc": {
@@ -399,7 +404,14 @@
               "minItems": 1,
               "maxItems": 20
             },
-            "value": { "oneOf": [{ "type": "string" }, { "type": "number" }, { "type": "boolean" }, { "type": "null" }] }
+            "value": {
+              "oneOf": [
+                { "type": "string" },
+                { "type": "number" },
+                { "type": "boolean" },
+                { "type": "null" }
+              ]
+            }
           }
         }
       ]
@@ -463,7 +475,11 @@
       "properties": {
         "sessionId": { "$ref": "#/$defs/uuid" },
         "executable": { "$ref": "#/$defs/executableName" },
-        "arguments": { "type": "array", "items": { "$ref": "#/$defs/commandArgument" }, "maxItems": 128 },
+        "arguments": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/commandArgument" },
+          "maxItems": 128
+        },
         "sourceCommandId": { "type": ["string", "null"], "maxLength": 64 },
         "clientTimestamp": { "$ref": "#/$defs/isoTimestamp" }
       }
@@ -728,7 +744,14 @@
           "minItems": 1,
           "maxItems": 20
         },
-        "value": { "oneOf": [{ "type": "string" }, { "type": "number" }, { "type": "boolean" }, { "type": "null" }] }
+        "value": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "number" },
+            { "type": "boolean" },
+            { "type": "null" }
+          ]
+        }
       }
     },
     "inlinePill": {
@@ -755,7 +778,15 @@
     "localSession": {
       "description": "The reader's own record of their temporary experience, persisted in browser storage (§8.1, §8.2). NOT the runtime session and NOT the server's coordination descriptor: §8.3 says those three have different lifecycles and must not be conflated. This is the browser-side one, and it deliberately has no tenant, no routing metadata and no credentials — sensitive values must not be placed in browser storage for convenience (§8.1). The server-side descriptor lives in session.schema.json.",
       "type": "object",
-      "required": ["schemaVersion", "id", "experienceId", "context", "transcript", "createdAt", "updatedAt"],
+      "required": [
+        "schemaVersion",
+        "id",
+        "experienceId",
+        "context",
+        "transcript",
+        "createdAt",
+        "updatedAt"
+      ],
       "additionalProperties": false,
       "properties": {
         "schemaVersion": {

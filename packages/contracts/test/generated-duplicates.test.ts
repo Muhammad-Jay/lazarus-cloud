@@ -22,7 +22,9 @@ import { describe, expect, it } from 'vitest';
 const GENERATED_DIR = 'src/generated';
 
 const generatedFiles = (): string[] =>
-  readdirSync(GENERATED_DIR).filter((name) => name.endsWith('.ts')).sort();
+  readdirSync(GENERATED_DIR)
+    .filter((name) => name.endsWith('.ts'))
+    .sort();
 
 interface Declaration {
   name: string;
@@ -30,7 +32,6 @@ interface Declaration {
   /** Comment-stripped, whitespace-collapsed body, with the name masked out. */
   shape: string;
 }
-
 
 const declarationsOf = (source: string): Declaration[] => {
   const starts = [...source.matchAll(/^export (?:declare )?(interface|type) (\w+)/gm)];
@@ -52,9 +53,7 @@ const declarationsOf = (source: string): Declaration[] => {
 
 describe('generated modules', () => {
   it.each(generatedFiles())('%s declares no two structurally identical interfaces', (file) => {
-    const declarations = declarationsOf(
-      readFileSync(join(GENERATED_DIR, file), 'utf8'),
-    );
+    const declarations = declarationsOf(readFileSync(join(GENERATED_DIR, file), 'utf8'));
 
     // Only real declarations can be duplicated. A `type X = Y` alias is how the
     // generator represents a deliberate duplicate, and comparing those would flag
@@ -79,9 +78,9 @@ describe('generated modules', () => {
   });
 
   it.each(generatedFiles())('%s exports every declared type under a distinct name', (file) => {
-    const names = declarationsOf(
-      readFileSync(join(GENERATED_DIR, file), 'utf8'),
-    ).map((entry) => entry.name);
+    const names = declarationsOf(readFileSync(join(GENERATED_DIR, file), 'utf8')).map(
+      (entry) => entry.name,
+    );
 
     expect(new Set(names).size).toBe(names.length);
   });

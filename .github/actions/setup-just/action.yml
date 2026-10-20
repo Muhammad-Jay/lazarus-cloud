@@ -1,0 +1,32 @@
+name: Install pinned just
+description: >-
+  Install the `just` version pinned in .tool-versions and fail if the installed
+  version does not match. `just --fmt --check` is a CI gate and just's
+  formatting output is not stable across releases, so the version must be exact.
+
+runs:
+  using: composite
+  steps:
+    - name: Install pinned just
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        just_version="$(awk '$1 == "just" { print $2 }' .tool-versions)"
+        if [ -z "$just_version" ]; then
+          echo "::error::no just pin found in .tool-versions"
+          exit 1
+        fi
+
+        curl -sSfL https://just.systems/install.sh \
+          | bash -s -- --to "$HOME/.local/bin" --tag "$just_version"
+
+        installed="$("$HOME/.local/bin/just" --version | awk '{ print $2 }')"
+        echo "pinned:    $just_version"
+        echo "installed: $installed"
+        if [ "$installed" != "$just_version" ]; then
+          echo "::error::installed just ($installed) does not match the pin ($just_version)"
+          exit 1
+        fi
+
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"

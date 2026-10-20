@@ -1,12 +1,20 @@
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
 import { describe, expect, it } from 'vitest';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const root = resolve(__dirname, '..', '..', '..');
-const schemaPath = resolve(root, 'packages', 'contracts', 'src', 'schema', 'interaction.schema.json');
+const schemaPath = resolve(
+  root,
+  'packages',
+  'contracts',
+  'src',
+  'schema',
+  'interaction.schema.json',
+);
 const tokensJsonPath = resolve(root, 'packages', 'tokens', 'src', 'tokens.json');
 const tsPath = resolve(root, 'packages', 'tokens', 'src', 'generated', 'tokens.ts');
 

@@ -1,3 +1,7 @@
+import { rankSearchResults, rankSuggestions } from './ranking.js';
+import { appendEvent, blockForEvent } from './transcript.js';
+
+import type { InteractionAction, NoticeLevel } from './actions.js';
 import type {
   CommandDraft,
   DraftConflict,
@@ -7,10 +11,6 @@ import type {
   TranscriptBlock,
   WorkspaceContext,
 } from '@lazarus/contracts';
-
-import type { InteractionAction, NoticeLevel } from './actions.js';
-import { rankSearchResults, rankSuggestions } from './ranking.js';
-import { appendEvent, blockForEvent } from './transcript.js';
 
 /**
  * The reducer.
@@ -147,9 +147,7 @@ const applyContextChange = (
 ): LazarusInteraction => {
   const transition = resolveDraftOnContextChange(state.draft);
   const suggestions =
-    state.suggestions.items.length === 0
-      ? state.suggestions
-      : { items: [], rankedAt: at };
+    state.suggestions.items.length === 0 ? state.suggestions : { items: [], rankedAt: at };
   const search = { results: [] };
 
   switch (transition) {

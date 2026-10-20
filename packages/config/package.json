@@ -1,0 +1,44 @@
+{
+  "name": "@lazarus/config",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared TypeScript, ESLint, Prettier and Vitest configuration for every workspace package.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    "./tsconfig/library.json": "./tsconfig/library.json",
+    "./tsconfig/nextjs.json": "./tsconfig/nextjs.json",
+    "./vitest": "./vitest/base.js",
+    "./vitest/browser": "./vitest/browser.js",
+    "./eslint": "./eslint/base.js",
+    "./eslint/next": "./eslint/next.js",
+    "./prettier": "./prettier/index.js"
+  },
+  "files": [
+    "tsconfig",
+    "vitest",
+    "eslint",
+    "prettier"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --cache",
+    "fmt": "prettier --write . --ignore-path ../../.prettierignore",
+    "fmt-check": "prettier --check . --ignore-path ../../.prettierignore"
+  },
+  "dependencies": {
+    "eslint": "catalog:",
+    "@eslint/js": "catalog:",
+    "typescript-eslint": "catalog:",
+    "eslint-plugin-import": "catalog:",
+    "eslint-plugin-unused-imports": "catalog:",
+    "prettier": "catalog:",
+    "@next/eslint-plugin-next": "catalog:",
+    "vitest": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "@vitest/coverage-v8": "catalog:"
+  }
+}
