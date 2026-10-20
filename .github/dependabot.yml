@@ -8,6 +8,11 @@
 # Self-hostability constrains this file. Adding a dependency is an ADR (§14), so a
 # new runtime, a new package manager, or a new external service is not a version
 # bump. Dependabot can raise them; it cannot justify them.
+#
+# `ignore` is not a top-level key in dependabot.yml — it belongs to each `updates`
+# entry. Every ecosystem carries the same rule: skip semver-patch version updates
+# so the weekly batch stays reviewable. For a digest-pinned image the digest is
+# the change that matters, not a patch tag (ADR-0010).
 
 version: 2
 
@@ -29,6 +34,9 @@ updates:
         update-types: [minor]
       nuget-security:
         applies-to: security-updates
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-patch']
 
   # ── Go ────────────────────────────────────────────────────────────────────
   - package-ecosystem: gomod
@@ -47,6 +55,9 @@ updates:
         update-types: [minor]
       gomod-security:
         applies-to: security-updates
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-patch']
 
   # ── TypeScript ────────────────────────────────────────────────────────────
   - package-ecosystem: npm
@@ -65,6 +76,9 @@ updates:
         patterns: ['*']
       pnpm-security:
         applies-to: security-updates
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-patch']
 
   # ── GitHub Actions ────────────────────────────────────────────────────────
   - package-ecosystem: github-actions
@@ -79,6 +93,9 @@ updates:
         update-types: [minor, patch]
       actions-security:
         applies-to: security-updates
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-patch']
 
   # ── Docker ────────────────────────────────────────────────────────────────
   - package-ecosystem: docker
@@ -93,8 +110,6 @@ updates:
       # the architecture, and therefore the risk, does not change on its own.
       docker-base-images:
         patterns: ['*']
-
-# Digest pinning means a tag update is a real change to review, not a no-op.
-ignore:
-  - dependency-name: '*'
-    update-types: ['version-update:semver-patch']
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-patch']

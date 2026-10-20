@@ -125,6 +125,12 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # `just codegen` is the single cross-language entry point (ADR-0009), so the
+      # pinned just must be present or the recipe fails with "just: command not
+      # found". `pnpm codegen` alone would skip the justfile's guards.
+      - name: Install pinned just
+        uses: ./.github/actions/setup-just
+
       - name: Record the pre-generation tree
         run: |
           set -euo pipefail
